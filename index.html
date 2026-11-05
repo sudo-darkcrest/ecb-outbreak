@@ -444,6 +444,12 @@ b{color:#fff;font-weight:700}
 .tut-hl{outline:2px solid #8fd3ea !important;outline-offset:3px;border-radius:8px;animation:tutPulse 1.6s ease-in-out infinite}
 @keyframes tutPulse{0%,100%{outline-color:rgba(143,211,234,1)}50%{outline-color:rgba(143,211,234,.35)}}
 @keyframes tutIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.rrow.tfp{padding:8px 8px;border-bottom:1px solid var(--line);border-radius:0;cursor:pointer}
+.rrow.tfp:hover:not([disabled]){background:rgba(143,211,234,.08)}
+.rrow.tfp[disabled]{opacity:.45;cursor:default}
+.reg-act.tfline{flex-wrap:wrap;row-gap:6px}
+.reg-act.tfline .here{flex:1 1 100%}
+.reg-act.tfline .note{flex:1 1 auto}
 
 </style>
 <div id="root"></div>
@@ -468,7 +474,7 @@ const UNITS = {
   avn:  { name:'Aviation Group',        sub:'Helicopters + UAS Squadron' },
   avsec:{ name:'Aviation Security Co',  sub:'MCV-UL · Air assault QRF' },
   trans:{ name:'Transportation Group',  sub:'Cargo, fuel & armored transport' },
-  sup:  { name:'Brigade Support',       sub:'Enablers' },
+  sup:  { name:'Brigade Support',       sub:'Support companies' },
 };
 const ENABLERS = { med:'Medical', maint:'Maintenance', intel:'Intelligence', comms:'Signal', ew:'Electronic Warfare', cbrn:'CBRN', eod:'EOD', mp:'Military Police' };
 
@@ -476,7 +482,7 @@ const REGIONS = [
   { id:'CAN', name:'Canada & Greenland',       pop:41,   wealth:.90, dens:.60, clim:'cold',      hub:.5, base:false, a:[262,80] },
   { id:'USW', name:'US West',                  pop:85,   wealth:.95, dens:.90, clim:'temperate', hub:.8, base:true,  a:[213,128] },
   { id:'USE', name:'US East',                  pop:255,  wealth:.95, dens:1.1, clim:'temperate', hub:1,  base:true,  a:[272,134], lab:'Fort Detrick BSL-4' },
-  { id:'MEX', name:'Mexico & Central America', pop:184,  wealth:.50, dens:1.0, clim:'hot',       hub:.5, base:false, a:[226,186] },
+  { id:'MEX', name:'Central America', pop:184,  wealth:.50, dens:1.0, clim:'hot',       hub:.5, base:false, a:[226,186] },
   { id:'CAR', name:'Caribbean',                pop:43,   wealth:.40, dens:1.0, clim:'hot',       hub:.4, base:false, a:[285,190] },
   { id:'SAN', name:'Andean North',             pop:146,  wealth:.45, dens:.90, clim:'hot',       hub:.4, base:false, a:[302,262] },
   { id:'BRA', name:'Brazil',                   pop:212,  wealth:.55, dens:1.1, clim:'hot',       hub:.6, base:false, a:[354,292] },
@@ -844,7 +850,7 @@ card({ id:'requisition', name:'Requisition Order', type:'LOGISTICS', cost:0, uni
 card({ id:'fuel_point', name:'Forward Fuel Point', type:'LOGISTICS', cost:1, res:{ supply:4 }, unit:'Transportation Group · tankers', text:s => `Set up a forward refuel point. +25 Fuel.`,
   play:s => { add(s,'fuel',25); return 'Forward fuel point established.'; } });
 card({ id:'maint', name:'Maintenance Surge', type:'LOGISTICS', cost:1, res:{ supply:6 }, rarity:'uncommon', unit:'Maintenance · MCV-H/R recovery',
-  text:s => `Mechanics work around the clock. Repair 1 lost helicopter, bring an offline enabler back, +5% to Artillery, Air Defense and Transport.`,
+  text:s => `Mechanics work around the clock. Repair 1 lost helicopter, bring an offline company back, +5% to Artillery, Air Defense and Transport.`,
   play:s => { const b = s.b; let r = []; const lost = ['multi','attack','heavy'].find(k => b.helo[k] < b.heloMax[k]); if (lost) { b.helo[lost]++; r.push('a helicopter'); } const off = Object.keys(ENABLERS).find(k => !b.en[k]); if (off) { b.en[off] = true; r.push(ENABLERS[off]); } heal(s,['art','ad','trans'],.05); return 'Maintenance surge restored ' + (r.length ? r.join(' and ') : 'vehicle readiness') + '.'; } });
 card({ id:'cache', name:'Pre-Positioned Stocks', type:'LOGISTICS', cost:1, rarity:'rare', exhaust:true, unit:'Maritime prepositioning', text:s => `Open the prepositioned stocks. +30 Supply, +30 Ammo, +30 Fuel, +10 Med. Removed after use.`,
   play:s => { add(s,'supply',30); add(s,'ammo',30); add(s,'fuel',30); add(s,'med',10); return 'Pre-positioned stocks opened.'; } });
@@ -978,7 +984,6 @@ function canSendTF(s, to) {
   if (s.over) return 'Game over'; if (s.crisis) return 'Resolve the crisis first'; if (s.cureChoice) return 'Decide what to do with the cure first';
   if (to === s.b.loc) return 'The main body is already here';
   if (s.b.tf && s.b.tf.loc === to) return 'The Task Force is already here';
-  if (s.b.tfMoved) return 'The Task Force already moved this week';
   const c = tfCost(s, to); if (c.hops > TF_RANGE) return 'Too far for a Task Force';
   const bn = tfCandidate(s); if (s.b.u[bn] < .25) return 'No battalion is strong enough to detach';
   if (!s.b.tf && mainBns(s).length < 3) return 'A Task Force is already detached';
@@ -1284,12 +1289,12 @@ ev({ id:'drones', title:'Rogue Drones', kind:'AIR', cond:s => s.turn > 5,
     { label:'Air Defense engages', fx:() => '−6 Ammo.', req:s => (s.b.u.ad > .2 && s.b.ammo >= 6) || 'Needs Air Defense Bn and 6 Ammo', apply:s => { s.b.ammo -= 6; return 'MCV-M/A batteries shot down the swarm.'; } },
     { label:'Absorb it', fx:() => '−15 Supply, light casualties to Transportation.', apply:s => { add(s,'supply',-15); cas(s,.04,['trans']); return 'Convoys took hits.'; } },
   ] });
-ev({ id:'sabotage', title:'Enabler Knocked Out', kind:'LOGISTICS', cond:s => s.turn > 4,
+ev({ id:'sabotage', title:'Company Knocked Out', kind:'LOGISTICS', cond:s => s.turn > 4,
   ctx:s => ({ e: pick(s, Object.keys(ENABLERS).filter(k => s.b.en[k])) || 'ew' }),
-  text:(s,c) => `Infected overran a support area. The <b>${ENABLERS[c.e]}</b> section lost its vehicles.`,
+  text:(s,c) => `Infected overran a support area. The <b>${ENABLERS[c.e]} Company</b> lost its vehicles.`,
   options:[
-    { label:'Rebuild now', fx:() => '−12 Supply. Section stays online.', req:s => s.b.supply >= 12 || 'Needs 12 Supply', apply:(s) => { s.b.supply -= 12; return 'The section was rebuilt from spares.'; } },
-    { label:'Do without', fx:(s,c) => `${ENABLERS[c.e]} goes offline until a Maintenance Surge.`, apply:(s,c) => { s.b.en[c.e] = false; return `${ENABLERS[c.e]} is offline.`; } },
+    { label:'Rebuild now', fx:() => '−12 Supply. The company stays online.', req:s => s.b.supply >= 12 || 'Needs 12 Supply', apply:(s) => { s.b.supply -= 12; return 'The company was rebuilt from spares.'; } },
+    { label:'Do without', fx:(s,c) => `The ${ENABLERS[c.e]} Company goes offline until a Maintenance Surge.`, apply:(s,c) => { s.b.en[c.e] = false; return `The ${ENABLERS[c.e]} Company is offline.`; } },
   ] });
 
 // restoration-phase events
@@ -2977,7 +2982,7 @@ function get(k) { try { const t = localStorage.getItem(k); return t ? JSON.parse
 function drop(k) { try { localStorage.removeItem(k); } catch (e) {} }
 function meta() { return Object.assign({ runs:0, wins:0, best:0, maxWeeks:0 }, get(META_KEY) || {}); }
 
-const SHORT = { CAN:'Canada', USW:'US West', USE:'US East', MEX:'Mexico', CAR:'Caribbean', SAN:'Andes', BRA:'Brazil', SCO:'S. Cone', WEU:'W. Europe', CEU:'C. Europe', SEU:'Med.', NOR:'Nordic', EEU:'E. Europe', RUS:'Russia', SIB:'Siberia', MDE:'Mid. East', NAF:'N. Africa', WAF:'W. Africa', CAF:'C. Africa', EAF:'E. Africa', SAF:'S. Africa', CAS:'C. Asia', SAS:'S. Asia', CHN:'China', EAS:'Japan/Korea', SEA:'SE Asia', IDN:'Indonesia', AUS:'Australia' };
+const SHORT = { CAN:'Canada', USW:'US West', USE:'US East', MEX:'Central America', CAR:'Caribbean', SAN:'Andes', BRA:'Brazil', SCO:'S. Cone', WEU:'W. Europe', CEU:'C. Europe', SEU:'Med.', NOR:'Nordic', EEU:'E. Europe', RUS:'Russia', SIB:'Siberia', MDE:'Mid. East', NAF:'N. Africa', WAF:'W. Africa', CAF:'C. Africa', EAF:'E. Africa', SAF:'S. Africa', CAS:'C. Asia', SAS:'S. Asia', CHN:'China', EAS:'Japan/Korea', SEA:'SE Asia', IDN:'Indonesia', AUS:'Australia' };
 const LOFF = { CEU:[-5,0], EEU:[6,0], SEU:[2,2], WEU:[-3,0], CAR:[6,2], NOR:[-4,0] };
 const ICON = {
   COMBAT:'<path d="M2 10l6-6 6 6M2 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2"/>',
@@ -3273,6 +3278,7 @@ function renderRegion() {
     ${tfBlock(id, isHere)}
     ${E.CHOKE[id] && !rs.fallen ? `<div class="note" style="margin-top:8px">If ${esc(rd.name)} falls, the ${esc(E.CHOKE[id])} closes and every resupply shrinks ${Math.round(E.CHOKE_LOSS * 100)}%.</div>` : ''}`;
   const tb = $('#b-tf'); if (tb) tb.onclick = () => { const from = S.b.tf ? S.b.tf.loc : S.b.loc; const r = E.sendTF(S, id); toast(r.msg, !r.ok); flow(); if (r.ok) { SFX.play('convoy'); fxConvoy(from, id, '#8fd3ea'); } };
+  const tm = $('#b-tfmove'); if (tm) tm.onclick = showTFPicker;
   const rb = $('#b-recall'); if (rb) rb.onclick = () => { const from = S.b.tf && S.b.tf.loc; const r = E.recallTF(S); toast(r.msg, !r.ok); flow(); if (r.ok) { SFX.play('convoy'); fxConvoy(from, S.b.loc, '#8fd3ea'); } };
   const b = $('#b-deploy'); if (b) b.onclick = () => { const from = S.b.loc; const r = E.deploy(S, id); toast(r.msg, !r.ok); if (r.ok) { sel = null; } flow(); if (r.ok) { SFX.play('convoy'); fxConvoy(from, id); } };
 }
@@ -3283,10 +3289,22 @@ function seasonText(id) {
 }
 function tfBlock(id, isHere) {
   const tf = S.b.tf;
-  if (tf && tf.loc === id) { const c = E.recallCost(S); const ok = E.canRecallTF(S); return `<div class="reg-act tfline"><span class="here" style="color:#8fd3ea">◇ Task Force: ${esc(E.UNITS[tf.bn].name)} · ${Math.round(S.b.u[tf.bn] * 100)}%</span><button class="btn ghost sm" id="b-recall" ${ok === true ? '' : 'disabled'}>Recall</button><span class="note">${c.cp} CP · ${c.fuel} fuel</span></div>`; }
+  if (tf && tf.loc === id) { const c = E.recallCost(S); const ok = E.canRecallTF(S); return `<div class="reg-act tfline"><span class="here" style="color:#8fd3ea">◇ Task Force: ${esc(E.UNITS[tf.bn].name)} · ${Math.round(S.b.u[tf.bn] * 100)}%</span><button class="btn sm" id="b-tfmove">Redeploy</button><button class="btn ghost sm" id="b-recall" ${ok === true ? '' : 'disabled'}>Recall</button><span class="note">Recall: ${c.cp} CP · ${c.fuel} fuel</span></div>`; }
   if (isHere) return '';
   const ok = E.canSendTF(S, id), c = E.tfCost(S, id), bn = E.tfCandidate(S);
   return `<div class="reg-act tfline"><button class="btn ghost sm" id="b-tf" ${ok === true ? '' : 'disabled'}>${tf ? 'Move Task Force here' : 'Send Task Force'}</button><span class="note">${esc(E.UNITS[bn].name)} · ${c.cp} CP · ${c.fuel} fuel${ok === true ? '' : '<br><span style="color:#ff8a7e">' + esc(ok) + '</span>'}</span></div>`;
+}
+function showTFPicker() {
+  const tf = S.b.tf; const from = tf ? tf.loc : S.b.loc;
+  const list = E.REGIONS.filter(r => r.id !== S.b.loc && (!tf || r.id !== tf.loc) && E.hops(from, r.id) <= E.TF_RANGE)
+    .map(r => ({ r, rs:S.regions[r.id], ok:E.canSendTF(S, r.id), c:E.tfCost(S, r.id) }))
+    .sort((a, b) => (b.ok === true) - (a.ok === true) || (E.labIn(S, b.r.id) ? 1 : 0) - (E.labIn(S, a.r.id) ? 1 : 0) || b.rs.z - a.rs.z);
+  const bn = E.tfCandidate(S);
+  const m = openModal(`<div class="dlg-h"><div><div class="k" style="color:#8fd3ea">Task Force · ${esc(E.UNITS[bn].name)}${tf ? ` · now in ${esc(E.RD[tf.loc].name)}` : ''}</div><h2>${tf ? 'Redeploy the Task Force' : 'Send a Task Force'}</h2></div><button class="hbtn" id="b-x">Close</button></div>
+    <div class="dlg-b"><p class="note" style="font-size:14px">${tf ? 'Move the Task Force straight to another region. No need to recall it first. Each move costs 1 Command Point and fuel.' : 'Detach your strongest battalion to guard another region. Each move costs 1 Command Point and fuel.'} Regions with a lab are listed first.</p>
+    <div class="rlist">${list.map(({ r, rs, ok, c }) => `<button class="rrow tfp" data-id="${r.id}" ${ok === true ? '' : 'disabled'}><i class="dot" style="background:${regionFill(rs)}"></i><span>${esc(r.name)}${E.labIn(S, r.id) ? ' <span style="color:var(--t-research)">⬢</span>' : ''}<span class="note" style="display:block">${ok === true ? `${c.cp} CP · ${c.fuel} fuel · ${c.hops} ${c.hops === 1 ? 'hop' : 'hops'}` : esc(ok)}</span></span><span class="chip st-${E.status(rs)}" style="font-size:9px">${E.status(rs)}</span><span class="mono">${rs.fallen ? '—' : fmtPct(rs.z)}</span></button>`).join('') || '<p class="note">No regions in range.</p>'}</div></div>`, 'wide');
+  $('#b-x', m).onclick = closeModal;
+  for (const x of $$('.tfp', m)) x.onclick = () => { const id = x.dataset.id, fromNow = S.b.tf ? S.b.tf.loc : S.b.loc; const r = E.sendTF(S, id); toast(r.msg, !r.ok); flow(); if (r.ok) { SFX.play('convoy'); fxConvoy(fromNow, id, '#8fd3ea'); } };
 }
 function restoreChecklist(rs) {
   const Q = E.RESTORE_REQ; const row = (ok, t) => `<li class="${ok ? 'ok' : ''}"><span>${ok ? '✓' : '○'}</span>${t}</li>`;
@@ -3304,7 +3322,7 @@ function renderSide() {
         return `<div class="unit bn"><span>${E.UNITS[k].name}${isTF ? ` <span class="tfb">TASK FORCE · ${esc(SHORT[b.tf.loc])}</span>` : ''}<span class="sub">${esc(vt.cdr.name)} · <span class="trait-t" title="${esc(tr.text || '')}">${esc(tr.name || '')}</span> <span class="faint">(${esc(tr.text || '')})</span></span><span class="rank r${ri}" title="${nx ? `${Math.floor(vt.xp)} of ${nx.xp} XP to ${nx.name}` : 'Top rank'}">${'★'.repeat(ri)}${'☆'.repeat(3 - ri)} ${RK[ri].name}</span><span class="xp"><i style="width:${nx ? Math.min(100, (vt.xp - RK[ri].xp) / (nx.xp - RK[ri].xp) * 100) : 100}%"></i></span></span><span class="bar"><i style="width:${v * 100}%;background:${col}"></i></span><span class="mono">${Math.round(v * 100)}%</span></div>`; }
       return `<div class="unit"><span>${E.UNITS[k].name}<span class="sub">${E.UNITS[k].sub}</span></span><span class="bar"><i style="width:${v * 100}%;background:${col}"></i></span><span class="mono">${Math.round(v * 100)}%</span></div>`; }).join('');
     const rc = b.tf ? E.recallCost(S) : null;
-    const tfSec = `<div class="sec"><span class="lbl">Task Force</span>${b.tf ? `<div style="font-size:13px">${E.UNITS[b.tf.bn].name} is operating in <b>${esc(E.RD[b.tf.loc].name)}</b> (since week ${b.tf.since}). It contains the outbreak, kills infected and gains experience there on its own.${E.hasD(S, 'mission') ? '' : ' Upkeep: 2 supply and 1 fuel a week.'}</div><div class="reg-act"><button class="btn ghost sm" id="b-recall2" ${E.canRecallTF(S) === true ? '' : 'disabled'}>Recall to main body</button><span class="note">${rc.cp} CP · ${rc.fuel} fuel</span></div>` : '<div class="note">Detach one battalion to guard a second region. Pick a region on the map and press <b>Send Task Force</b>. It fights and contains the outbreak there on its own, but your main body is a third weaker while it is away.</div>'}</div>`;
+    const tfSec = `<div class="sec"><span class="lbl">Task Force</span>${b.tf ? `<div style="font-size:13px">${E.UNITS[b.tf.bn].name} is operating in <b>${esc(E.RD[b.tf.loc].name)}</b> (since week ${b.tf.since}). It contains the outbreak, kills infected and gains experience there on its own.${E.hasD(S, 'mission') ? '' : ' Upkeep: 2 supply and 1 fuel a week.'}</div><div class="reg-act"><button class="btn sm" id="b-tfpick">Redeploy Task Force</button><button class="btn ghost sm" id="b-recall2" ${E.canRecallTF(S) === true ? '' : 'disabled'}>Recall to main body</button><span class="note">Recall: ${rc.cp} CP · ${rc.fuel} fuel</span></div>` : '<div class="note">Detach one battalion to guard a second region. It fights and contains the outbreak there on its own, but your main body is a third weaker while it is away.</div><div class="reg-act"><button class="btn sm" id="b-tfpick">Send a Task Force</button></div>'}</div>`;
     const docSec = `<div class="sec"><span class="lbl">Doctrine</span>${(S.doct || []).length ? S.doct.map(id => `<div class="doc"><b>${esc(E.DOCTRINES[id].name)}</b><span>${esc(E.DOCTRINES[id].text)}</span></div>`).join('') : '<div class="note">No doctrines yet.</div>'}<div class="note" style="margin-top:4px">Next Promotion Board: week ${S.nextBoard}.</div></div>`;
     const lost = E.chokesLost(S);
     const supSec = `<div class="sec"><span class="lbl">Supply lines</span><div class="chips">${Object.entries(E.CHOKE).map(([id, n]) => `<span class="en ${S.regions[id].fallen ? 'off' : ''}" title="${esc(E.RD[id].name)}">${esc(n)}</span>`).join('')}</div><div class="note" style="margin-top:5px">${lost.length ? `${lost.length} chokepoint${lost.length > 1 ? 's' : ''} lost: resupply −${Math.round(lost.length * E.CHOKE_LOSS * 100)}%.` : `Each chokepoint lost shrinks every resupply by ${Math.round(E.CHOKE_LOSS * 100)}%.`}</div></div>`;
@@ -3323,7 +3341,8 @@ function renderSide() {
       ${tfSec}${docSec}
       <div class="sec"><span class="lbl">Order of battle</span><div class="units">${unitRows}</div>
         <div class="helos"><span>ATTACK ${b.helo.attack}/${b.heloMax.attack}</span><span>MULTIROLE ${b.helo.multi}/${b.heloMax.multi}</span><span>HEAVY ${b.helo.heavy}/${b.heloMax.heavy}</span><span>UAS ${Math.round(b.uas * 100)}%</span><span>AIR READY ${Math.round(b.air)}%</span></div></div>
-      <div class="sec"><span class="lbl">Enablers</span><div class="chips">${Object.entries(E.ENABLERS).map(([k, n]) => `<span class="en ${b.en[k] ? '' : 'off'}">${n}</span>`).join('')}</div></div>${supSec}`;
+      <div class="sec"><span class="lbl">Companies</span><div class="chips">${Object.entries(E.ENABLERS).map(([k, n]) => `<span class="en ${b.en[k] ? '' : 'off'}">${n}</span>`).join('')}</div></div>${supSec}`;
+    const tp = $('#b-tfpick', body); if (tp) tp.onclick = showTFPicker;
     const r2 = $('#b-recall2', body); if (r2) r2.onclick = () => { const from = S.b.tf && S.b.tf.loc; const r = E.recallTF(S); toast(r.msg, !r.ok); flow(); if (r.ok) { SFX.play('convoy'); fxConvoy(from, S.b.loc, '#8fd3ea'); } };
     for (const x of $$('.posture button', body)) x.onclick = () => { E.setPosture(S, x.dataset.p); save(); render(); };
   } else if (tab === 'regions') {
@@ -3719,7 +3738,7 @@ function howHTML() {
     <li><b>You lose if</b> survivors fall below 20%, the brigade is wiped out, Morale or Command Trust hits 0, or every lab is overrun.</li>
     <li><b>Watch Exposure.</b> Fighting in infected regions builds it. At 100 the brigade has an outbreak of its own. Decon and MEDEVAC cards bring it down.</li>
     <li><b>Battalions</b> each have a named commander with a trait (shown in the Brigade tab). They gain experience from fighting: Green, Blooded, Veteran, Elite. Higher ranks kill more and lose fewer soldiers. Commanders can be killed when their battalion takes heavy losses.</li>
-    <li><b>Task Force:</b> click any region and press <b>Send Task Force</b> to detach your strongest battalion there. It fights on its own every week. Your main body is a third weaker while it is away. Recall it from the region card or the Brigade tab.</li>
+    <li><b>Task Force:</b> click any region and press <b>Send Task Force</b> to detach your strongest battalion there. It fights on its own every week. Your main body is a third weaker while it is away. You can move it straight to another region any time (Redeploy Task Force in the Brigade tab, or Move Task Force here on a region card) without recalling it first. Recall it from the region card or the Brigade tab.</li>
     <li><b>Promotion Board:</b> every ${6} weeks you pick a permanent doctrine, such as stronger artillery, bigger resupply or extra cards each week.</li>
     <li><b>Upgrades:</b> when you get a new card, you can instead upgrade one you have. Upgraded cards cost 1 Command Point less.</li>
     <li><b>Seasons and chokepoints:</b> winter slows the infected in cold regions. Five regions hold strategic chokepoints (anchor icons): Panama, Suez, Malacca, Hormuz and the Bosporus. Each one that falls shrinks your resupply.</li>

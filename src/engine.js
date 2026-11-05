@@ -16,7 +16,7 @@ const UNITS = {
   avn:  { name:'Aviation Group',        sub:'Helicopters + UAS Squadron' },
   avsec:{ name:'Aviation Security Co',  sub:'MCV-UL · Air assault QRF' },
   trans:{ name:'Transportation Group',  sub:'Cargo, fuel & armored transport' },
-  sup:  { name:'Brigade Support',       sub:'Enablers' },
+  sup:  { name:'Brigade Support',       sub:'Support companies' },
 };
 const ENABLERS = { med:'Medical', maint:'Maintenance', intel:'Intelligence', comms:'Signal', ew:'Electronic Warfare', cbrn:'CBRN', eod:'EOD', mp:'Military Police' };
 
@@ -24,7 +24,7 @@ const REGIONS = [
   { id:'CAN', name:'Canada & Greenland',       pop:41,   wealth:.90, dens:.60, clim:'cold',      hub:.5, base:false, a:[262,80] },
   { id:'USW', name:'US West',                  pop:85,   wealth:.95, dens:.90, clim:'temperate', hub:.8, base:true,  a:[213,128] },
   { id:'USE', name:'US East',                  pop:255,  wealth:.95, dens:1.1, clim:'temperate', hub:1,  base:true,  a:[272,134], lab:'Fort Detrick BSL-4' },
-  { id:'MEX', name:'Mexico & Central America', pop:184,  wealth:.50, dens:1.0, clim:'hot',       hub:.5, base:false, a:[226,186] },
+  { id:'MEX', name:'Central America', pop:184,  wealth:.50, dens:1.0, clim:'hot',       hub:.5, base:false, a:[226,186] },
   { id:'CAR', name:'Caribbean',                pop:43,   wealth:.40, dens:1.0, clim:'hot',       hub:.4, base:false, a:[285,190] },
   { id:'SAN', name:'Andean North',             pop:146,  wealth:.45, dens:.90, clim:'hot',       hub:.4, base:false, a:[302,262] },
   { id:'BRA', name:'Brazil',                   pop:212,  wealth:.55, dens:1.1, clim:'hot',       hub:.6, base:false, a:[354,292] },
@@ -392,7 +392,7 @@ card({ id:'requisition', name:'Requisition Order', type:'LOGISTICS', cost:0, uni
 card({ id:'fuel_point', name:'Forward Fuel Point', type:'LOGISTICS', cost:1, res:{ supply:4 }, unit:'Transportation Group · tankers', text:s => `Set up a forward refuel point. +25 Fuel.`,
   play:s => { add(s,'fuel',25); return 'Forward fuel point established.'; } });
 card({ id:'maint', name:'Maintenance Surge', type:'LOGISTICS', cost:1, res:{ supply:6 }, rarity:'uncommon', unit:'Maintenance · MCV-H/R recovery',
-  text:s => `Mechanics work around the clock. Repair 1 lost helicopter, bring an offline enabler back, +5% to Artillery, Air Defense and Transport.`,
+  text:s => `Mechanics work around the clock. Repair 1 lost helicopter, bring an offline company back, +5% to Artillery, Air Defense and Transport.`,
   play:s => { const b = s.b; let r = []; const lost = ['multi','attack','heavy'].find(k => b.helo[k] < b.heloMax[k]); if (lost) { b.helo[lost]++; r.push('a helicopter'); } const off = Object.keys(ENABLERS).find(k => !b.en[k]); if (off) { b.en[off] = true; r.push(ENABLERS[off]); } heal(s,['art','ad','trans'],.05); return 'Maintenance surge restored ' + (r.length ? r.join(' and ') : 'vehicle readiness') + '.'; } });
 card({ id:'cache', name:'Pre-Positioned Stocks', type:'LOGISTICS', cost:1, rarity:'rare', exhaust:true, unit:'Maritime prepositioning', text:s => `Open the prepositioned stocks. +30 Supply, +30 Ammo, +30 Fuel, +10 Med. Removed after use.`,
   play:s => { add(s,'supply',30); add(s,'ammo',30); add(s,'fuel',30); add(s,'med',10); return 'Pre-positioned stocks opened.'; } });
@@ -526,7 +526,6 @@ function canSendTF(s, to) {
   if (s.over) return 'Game over'; if (s.crisis) return 'Resolve the crisis first'; if (s.cureChoice) return 'Decide what to do with the cure first';
   if (to === s.b.loc) return 'The main body is already here';
   if (s.b.tf && s.b.tf.loc === to) return 'The Task Force is already here';
-  if (s.b.tfMoved) return 'The Task Force already moved this week';
   const c = tfCost(s, to); if (c.hops > TF_RANGE) return 'Too far for a Task Force';
   const bn = tfCandidate(s); if (s.b.u[bn] < .25) return 'No battalion is strong enough to detach';
   if (!s.b.tf && mainBns(s).length < 3) return 'A Task Force is already detached';
@@ -832,12 +831,12 @@ ev({ id:'drones', title:'Rogue Drones', kind:'AIR', cond:s => s.turn > 5,
     { label:'Air Defense engages', fx:() => '−6 Ammo.', req:s => (s.b.u.ad > .2 && s.b.ammo >= 6) || 'Needs Air Defense Bn and 6 Ammo', apply:s => { s.b.ammo -= 6; return 'MCV-M/A batteries shot down the swarm.'; } },
     { label:'Absorb it', fx:() => '−15 Supply, light casualties to Transportation.', apply:s => { add(s,'supply',-15); cas(s,.04,['trans']); return 'Convoys took hits.'; } },
   ] });
-ev({ id:'sabotage', title:'Enabler Knocked Out', kind:'LOGISTICS', cond:s => s.turn > 4,
+ev({ id:'sabotage', title:'Company Knocked Out', kind:'LOGISTICS', cond:s => s.turn > 4,
   ctx:s => ({ e: pick(s, Object.keys(ENABLERS).filter(k => s.b.en[k])) || 'ew' }),
-  text:(s,c) => `Infected overran a support area. The <b>${ENABLERS[c.e]}</b> section lost its vehicles.`,
+  text:(s,c) => `Infected overran a support area. The <b>${ENABLERS[c.e]} Company</b> lost its vehicles.`,
   options:[
-    { label:'Rebuild now', fx:() => '−12 Supply. Section stays online.', req:s => s.b.supply >= 12 || 'Needs 12 Supply', apply:(s) => { s.b.supply -= 12; return 'The section was rebuilt from spares.'; } },
-    { label:'Do without', fx:(s,c) => `${ENABLERS[c.e]} goes offline until a Maintenance Surge.`, apply:(s,c) => { s.b.en[c.e] = false; return `${ENABLERS[c.e]} is offline.`; } },
+    { label:'Rebuild now', fx:() => '−12 Supply. The company stays online.', req:s => s.b.supply >= 12 || 'Needs 12 Supply', apply:(s) => { s.b.supply -= 12; return 'The company was rebuilt from spares.'; } },
+    { label:'Do without', fx:(s,c) => `The ${ENABLERS[c.e]} Company goes offline until a Maintenance Surge.`, apply:(s,c) => { s.b.en[c.e] = false; return `The ${ENABLERS[c.e]} Company is offline.`; } },
   ] });
 
 // restoration-phase events
