@@ -107,7 +107,7 @@ const OPENERS = [
   { art:['ship', 'LOGISTICS'], amb:'horn', lines:['A container ship drifts into port with no one at the helm.', 'Harbor police board her at dawn. They do not come back out.'] },
   { art:['checkpoint', 'COMBAT'], amb:'static', lines:['A border post radios in: a riot at the gate.', 'Then the radio goes quiet. The cameras keep running.'] },
 ];
-const SOURCES = [['WHO', 'WHO MODEL · IF NOTHING IS DONE'], ['CDC', 'CDC FORECAST · IF NOTHING IS DONE'], ['PENTAGON', 'PENTAGON RED TEAM · WORST CASE'], ['NATO', 'NATO PLANNING CELL · IF NOTHING IS DONE']];
+const SOURCES = [['WHO', 'WHO MODEL · UNCHECKED SPREAD'], ['CDC', 'CDC FORECAST · NO CONTAINMENT'], ['PENTAGON', 'PENTAGON RED TEAM · WORST CASE'], ['NATO', 'NATO PLANNING CELL · NO INTERVENTION']];
 const PANELS = [
   [['horde', 'COMBAT', 'The bitten will outnumber the living in whole cities.'], ['looters', 'CIVIL', 'Stores will empty in a day. Then the looting starts.'], ['grid', 'LOGISTICS', 'The power grid will fail, one city at a time.'], ['hospital', 'MEDICAL', 'Hospitals will lock their doors.']],
   [['refugees', 'CIVIL', 'Millions will flee onto the highways. The infected will follow.'], ['borders', 'CIVIL', 'Borders will close with families on the wrong side.'], ['signal', 'INTEL', 'Emergency broadcasts will loop for days. Then they will stop.'], ['water', 'LOGISTICS', 'Water plants will go dark. The taps will run dry.']],

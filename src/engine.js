@@ -44,8 +44,8 @@ const REGIONS = [
   { id:'SAF', name:'Southern Africa',          pop:240,  wealth:.45, dens:.90, clim:'temperate', hub:.4, base:false, a:[568,322] },
   { id:'CAS', name:'Central Asia',             pop:129,  wealth:.40, dens:.60, clim:'cold',      hub:.3, base:false, a:[668,115] },
   { id:'SAS', name:'South Asia',               pop:1943, wealth:.40, dens:1.4, clim:'hot',       hub:.8, base:false, a:[713,180], lab:'NIV Pune' },
-  { id:'CHN', name:'China',                    pop:1431, wealth:.65, dens:1.3, clim:'temperate', hub:1,  base:false, a:[772,141] },
-  { id:'EAS', name:'Japan & Korea',            pop:201,  wealth:.95, dens:1.3, clim:'temperate', hub:.9, base:true,  a:[861,142], lab:'NIID Tokyo' },
+  { id:'CHN', name:'China',                    pop:1408, wealth:.65, dens:1.3, clim:'temperate', hub:1,  base:false, a:[772,141] },
+  { id:'EAS', name:'Japan, Korea & Taiwan',    pop:224,  wealth:.95, dens:1.3, clim:'temperate', hub:.9, base:true,  a:[861,142], lab:'NIID Tokyo' },
   { id:'SEA', name:'Southeast Asia',           pop:295,  wealth:.50, dens:1.2, clim:'hot',       hub:.7, base:false, a:[780,205] },
   { id:'IDN', name:'Indonesia & Philippines',  pop:402,  wealth:.45, dens:1.2, clim:'hot',       hub:.6, base:false, a:[822,258] },
   { id:'AUS', name:'Australia & Oceania',      pop:45,   wealth:.90, dens:.60, clim:'temperate', hub:.6, base:true,  a:[866,342], lab:'Doherty Institute' },
@@ -250,6 +250,29 @@ function civLoss(s, people) { const rs = T(s); const P = TD(s).pop; const l = Ma
 const est = (s, f) => M(T(s).z * TD(s).pop * f);
 const ART_COLLATERAL = .1, THERMO_COLLATERAL = .5;
 function contain(s, v, rid) { const rs = s.regions[rid || s.b.loc]; rs.contain = clamp(rs.contain + v, 0, 0.85); }
+// Containment now lasts: it builds up week after week and fades slowly, faster once your troops leave.
+// A region that reaches the STAB thresholds is Stabilized and holds on its own for a while.
+const STAB = { contain:.5, quar:.35, z:.03, weeks:6, lose:.06, floor:.4 };
+const presentIn = (s, id) => s.b.loc === id || !!(s.b.tf && s.b.tf.loc === id);
+const canStabilize = rs => !rs.fallen && rs.contain >= STAB.contain && rs.quar >= STAB.quar && rs.z < STAB.z;
+function settleControl(s, rep) {
+  rep.stab = [];
+  for (const r of REGIONS) { const rs = s.regions[r.id]; const here = presentIn(s, r.id); rs.stab = rs.stab || 0;
+    if (rs.fallen) { if (rs.stab) { rs.stab = 0; rep.items.push({ k:'bad', t:`${r.name} fell. It is no longer stable.` }); } rs.contain *= .5; continue; }
+    if (rs.stab > 0 && rs.z >= STAB.lose) { rs.stab = 0; rep.items.push({ k:'bad', t:`${r.name}: the infection broke through. The region is no longer stable.` }); }
+    else if (!rs.stab && canStabilize(rs)) {
+      rs.stab = STAB.weeks; rep.stab.push(r.id); s.stats.stabilized = (s.stats.stabilized || 0) + 1;
+      const first = !rs.stabbed; rs.stabbed = true; if (first) { add(s,'trust',3); add(s,'morale',2); }
+      rep.items.push({ k:'good', t:`${r.name} is stabilized. Local forces can hold it for about ${STAB.weeks} weeks after you leave.${first ? ' Trust +3, Morale +2.' : ''}` });
+    } else if (rs.stab > 0) {
+      if (here) rs.stab = STAB.weeks;
+      else if (--rs.stab === 0) rep.items.push({ k:'info', t:`${r.name}: local forces are worn out. It is no longer stable and needs your troops again.` });
+    }
+    if (rs.stab > 0) rs.order = Math.min(100, rs.order + 2);
+    const keep = here ? .78 : rs.stab > 0 ? .96 : .82;
+    rs.contain = clamp(rs.contain * keep - rs.z * .3, rs.stab > 0 ? STAB.floor : 0, .85);
+  }
+}
 const M = v => v >= 1000 ? (v / 1000).toFixed(2) + 'B' : v >= 1 ? v.toFixed(1) + 'M' : v >= .001 ? Math.round(v * 1000) + 'K' : v > 0 ? Math.max(1, Math.round(v * 1e6)).toLocaleString('en-US') : '0';
 const pc = f => Math.round(f * 100) + '%';
 function supplyFlow(s) {
@@ -268,7 +291,7 @@ const reqInfect = s => T(s).z > 0.0005 || 'No infected in theater';
 
 // --- starter
 card({ id:'clear_hold', name:'Clear and Hold', type:'COMBAT', cost:1, res:{ ammo:6 }, rarity:'starter', unit:'Maneuver Bns · MCV-M/I',
-  text:s => `Rifle companies sweep the sector. Kill <b>${pc(kp(s,.12,man(s),'COMBAT'))}</b> (about ${est(s,kp(s,.12,man(s),'COMBAT'))}) of infected in theater. Containment +10% this week.`,
+  text:s => `Rifle companies sweep the sector. Kill <b>${pc(kp(s,.12,man(s),'COMBAT'))}</b> (about ${est(s,kp(s,.12,man(s),'COMBAT'))}) of infected in theater. Containment +10%.`,
   play:s => { const k = doKill(s, kp(s,.12,man(s),'COMBAT')); contain(s,.10); s.b.boost = 0; const c = cas(s, .004 + T(s).z * .03); return `Clear and Hold destroyed ${M(k)} infected. ${c} casualties.`; } });
 card({ id:'fire_mission', name:'Fire Mission: 155mm', type:'FIRES', cost:1, res:{ ammo:10 }, rarity:'starter', unit:'Artillery Bn · MCV-H/155',
   text:s => { const f = kp(s,.16,s.b.u.art,'FIRES'); return `Massed 155mm fires. Kill <b>${pc(f)}</b> here (about <b>${est(s,f)}</b>). About ${M(T(s).z * TD(s).pop * f * ART_COLLATERAL)} civilians hit. Order −2.`; },
@@ -308,7 +331,7 @@ card({ id:'combined_arms', name:'Combined Arms Assault', type:'COMBAT', cost:3, 
 card({ id:'linebacker', name:'Linebacker Direct Fire', type:'COMBAT', cost:1, res:{ ammo:10 }, unit:'Air Defense Bn · MCV-M/A', req:s => s.b.u.ad > .2 || 'Air Defense Bn too weak',
   text:s => `Air defense cannons depressed for ground fire. Kill <b>${pc(kp(s,.14,s.b.u.ad,'COMBAT'))}</b> (about ${est(s,kp(s,.14,s.b.u.ad,'COMBAT'))}).`,
   play:s => { const k = doKill(s, kp(s,.14,s.b.u.ad,'COMBAT')); s.b.boost = 0; return `MCV-M/A cannons destroyed ${M(k)} infected.`; } });
-card({ id:'qrf', name:'Battalion QRF', type:'COMBAT', cost:0, unit:'QRF Squads', text:s => `Quick reaction squads plug gaps in the line. Containment +12% this week.`,
+card({ id:'qrf', name:'Battalion QRF', type:'COMBAT', cost:0, unit:'QRF Squads', text:s => `Quick reaction squads plug gaps in the line. Containment +12%.`,
   play:s => { contain(s,.12); return 'QRF squads plugged gaps in the cordon.'; } });
 card({ id:'obstacles', name:'Engineer Obstacle Belt', type:'COMBAT', cost:1, res:{ supply:8 }, rarity:'uncommon', unit:'Engineer Platoons · MCV-H/E',
   text:s => `Ditches, wire and blocked roads. Containment +20%. Quarantine +10%.`,
@@ -551,7 +574,7 @@ function recallTF(s) {
 }
 const POSTURES = {
   assault: { name:'Assault', kill:.10, contain:.12, casM:1.5, ammo:7, fuel:5, supply:7, expo:1.3, text:'More kills, more casualties and ammo use.' },
-  hold:    { name:'Hold',    kill:.04, contain:.28, casM:.7,  ammo:3, fuel:3, supply:6, expo:.8,  text:'Strong containment, fewer casualties.' },
+  hold:    { name:'Hold',    kill:.04, contain:.28, casM:.7,  ammo:3, fuel:3, supply:6, expo:.8,  text:'Strong containment, fewer casualties. Mans checkpoints: quarantine +5% a week.' },
   relief:  { name:'Relief',  kill:.02, contain:.12, casM:1,   ammo:1, fuel:4, supply:8, expo:1.2, text:'Rescue civilians and restore order each week.' },
 };
 function setPosture(s, p) { if (POSTURES[p]) s.b.posture = p; }
@@ -809,8 +832,8 @@ ev({ id:'hospital', title:'Survivors in the Hospital', kind:'CIVIL', cond:s => T
 ev({ id:'cold_front', title:'Arctic Front', kind:'LOGISTICS', cond:s => TD(s).clim === 'cold',
   text:s => `Temperatures in ${TD(s).name} have dropped to −30°C. The infected are slowing down. So are your vehicles.`,
   options:[
-    { label:'Burn fuel for heat', fx:() => '−12 Fuel. Containment +20% this week.', req:s => s.b.fuel >= 12 || 'Needs 12 Fuel', apply:s => { s.b.fuel -= 12; contain(s,.2); return 'Heaters ran around the clock.'; } },
-    { label:'Tough it out', fx:() => 'Morale −8, light casualties. Containment +20% this week.', apply:s => { add(s,'morale',-8); cas(s,.01); contain(s,.2); return 'Frostbite cases climbed.'; } },
+    { label:'Burn fuel for heat', fx:() => '−12 Fuel. Containment +20%.', req:s => s.b.fuel >= 12 || 'Needs 12 Fuel', apply:s => { s.b.fuel -= 12; contain(s,.2); return 'Heaters ran around the clock.'; } },
+    { label:'Tough it out', fx:() => 'Morale −8, light casualties. Containment +20%.', apply:s => { add(s,'morale',-8); cas(s,.01); contain(s,.2); return 'Frostbite cases climbed.'; } },
   ] });
 ev({ id:'heat', title:'Heat Casualties', kind:'MEDICAL', cond:s => TD(s).clim === 'hot',
   text:s => `It is 46°C in the shade and soldiers are fighting in full protective gear.`,
@@ -879,7 +902,7 @@ ev({ id:'relapse', title:'Holdout Horde', kind:'COMBAT', phase:'restore', cond:s
   text:s => `A pocket of infected that the cure can't reach is pushing out of a dead district in ${TD(s).name}.`,
   options:[
     { label:'Burn it out', fx:s => `−10 Ammo. Kill ${pc(kp(s,.15,man(s),'COMBAT',false))} of infected here.`, req:s => s.b.ammo >= 10 || 'Needs 10 Ammo', apply:s => { s.b.ammo -= 10; const k = doKill(s, kp(s,.15,man(s),'COMBAT',false)); return `The holdout horde was destroyed: ${M(k)}.`; } },
-    { label:'Wall it off', fx:() => '−8 Supply. Quarantine +20%, containment this week.', req:s => s.b.supply >= 8 || 'Needs 8 Supply', apply:s => { s.b.supply -= 8; T(s).quar = clamp(T(s).quar + .2, 0, .95); contain(s,.25); return 'Engineers walled off the district.'; } },
+    { label:'Wall it off', fx:() => '−8 Supply. Quarantine +20%, Containment +25%.', req:s => s.b.supply >= 8 || 'Needs 8 Supply', apply:s => { s.b.supply -= 8; T(s).quar = clamp(T(s).quar + .2, 0, .95); contain(s,.25); return 'Engineers walled off the district.'; } },
     { label:'Let it break out', fx:() => 'Infection here rises.', apply:s => { const r = T(s); const i = Math.min(Math.max(0, r.h - r.safe) * (1 - (r.vax || 0)), .004); r.z += i; r.h -= i; return 'The horde broke into the suburbs.'; } },
   ] });
 ev({ id:'rotation', title:'Rotation Home', kind:'COMMAND', phase:'restore', cond:s => allMan(s) < .85,
@@ -986,9 +1009,11 @@ function makeDirective(s) {
   opts.push({ type:'evac', base:s.stats.saved, need:4, text:'Save 4M more civilians (evacuations, rescues, safe zones).', reward:'Trust +12, Morale +10' });
   const near = REGIONS.filter(r => { const x = s.regions[r.id]; return !x.fallen && x.z > .004 && x.z < .3 && hops(s.b.loc, r.id) <= 2; }).sort((a, b) => s.regions[b.id].z - s.regions[a.id].z)[0];
   if (near) { const tz = s.regions[near.id].z * .6; opts.push({ type:'suppress', region:near.id, target:tz, text:`Cut infection in ${near.name} below ${(tz*100).toFixed(1)}%.`, reward:'Trust +12, +10% to all battalions' }); }
+  const stb = REGIONS.filter(r => { const x = s.regions[r.id]; return !x.fallen && !x.stab && x.z > 0 && x.z < .12 && hops(s.b.loc, r.id) <= 2; }).sort((a, b) => s.regions[a.id].z - s.regions[b.id].z)[0];
+  if (stb) opts.push({ type:'stabilize', region:stb.id, len:5, text:`Stabilize ${stb.name}: containment 50%+, quarantine 35%+, infected under 3%.`, reward:'Trust +10, Morale +6' });
   const hold = REGIONS.filter(r => { const x = s.regions[r.id]; return !x.fallen && x.z > .02 && hops(s.b.loc, r.id) <= 2; })[0];
   if (hold) opts.push({ type:'hold', region:hold.id, text:`Keep ${hold.name} from falling until the deadline.`, reward:'Trust +8, supply drop' });
-  const d = pick(s, opts); d.deadline = s.turn + 4; d.issued = s.turn; return d;
+  const d = pick(s, opts); d.deadline = s.turn + (d.len || 4); d.issued = s.turn; return d;
 }
 function checkDirective(s, rep, atDeadline) {
   const d = s.directive; if (!d) return;
@@ -998,6 +1023,7 @@ function checkDirective(s, rep, atDeadline) {
   if (d.type === 'evac') ok = s.stats.saved - d.base >= d.need;
   if (d.type === 'suppress') ok = s.regions[d.region].z < d.target && !s.regions[d.region].fallen;
   if (d.type === 'hold') ok = atDeadline && !s.regions[d.region].fallen;
+  if (d.type === 'stabilize') ok = s.regions[d.region].stab > 0;
   if (d.type === 'reclaim') ok = !s.regions[d.region].fallen;
   if (d.type === 'restore') ok = !!s.regions[d.region].restored;
   if (d.type === 'vax') ok = (s.regions[d.region].vax || 0) >= .6;
@@ -1010,6 +1036,7 @@ function checkDirective(s, rep, atDeadline) {
     if (d.type === 'evac') { add(s,'trust',12); add(s,'morale',10); }
     if (d.type === 'suppress') { add(s,'trust',12); heal(s,['bn1','bn2','bn3'],.1); }
     if (d.type === 'hold') { add(s,'trust',8); add(s,'supply',20); add(s,'ammo',15); add(s,'fuel',15); }
+    if (d.type === 'stabilize') { add(s,'trust',10); add(s,'morale',6); }
     rep.items.push({ k:'good', t:`Directive complete: ${d.text} (${d.reward})` });
     s.stats.directivesWon++; s.directive = null; s.nextDirective = s.turn + 2;
     s.pendingReward = { reason:'Directive complete', options:rewardOptions(s) };
@@ -1087,7 +1114,7 @@ function newGame(opts) {
   s.path = { name: pick(s,names) + ' ' + pick(s,kinds), code: 'HX-' + rint(s,2,9) + 'ABCDEFGHJK'[rint(s,0,9)],
     inf: (1.30 + rnd(s) * .16) * D.inf, aggr: .85 + rnd(s) * .35, resil: .9 + rnd(s) * .25, coldTol: .6 + rnd(s) * .3, spread: .9 + rnd(s) * .25, traits:[] };
   s.regions = {};
-  for (const r of REGIONS) s.regions[r.id] = { h:1, z:0, d:0, safe:0, order:35 + 60 * r.wealth, quar:0, fallen:false, contain:0, sz:0, seen:false, vax:0, restored:false };
+  for (const r of REGIONS) s.regions[r.id] = { h:1, z:0, d:0, safe:0, order:35 + 60 * r.wealth, quar:0, fallen:false, contain:0, stab:0, sz:0, seen:false, vax:0, restored:false };
   s.pz = pick(s, PZ_CANDIDATES);
   const seedRegion = (id, z) => { const r = s.regions[id]; r.z = z; r.h -= z; r.seen = true; };
   seedRegion(s.pz, .0015);
@@ -1123,6 +1150,7 @@ function migrate(s) {
   if (!s.deck.burned) s.deck.burned = [];
   if (s.burnBank == null) s.burnBank = 0;
   if (s.b.air == null) { s.b.air = 100; s.b.ato = null; s.b.eng = null; s.b.engUsed = false; }
+  for (const r of REGIONS) { const rs = s.regions[r.id]; if (rs && rs.stab == null) rs.stab = 0; }
   return s;
 }
 function startTurn(s) {
@@ -1171,6 +1199,7 @@ function endTurn(s) {
   if (!th.fallen || th.z > 0) {
     contain(s, post.contain * sMan * e + mainBns(s).reduce((a, k) => a + (traitOf(s, k).contain || 0), 0));
     if (hasD(s, 'hearts') && !th.fallen) th.order = Math.min(100, th.order + 3);
+    if (b.posture === 'hold' && !th.fallen) th.quar = clamp(th.quar + .05 * e, 0, .95);
     if (th.z > 0) { const k = doKill(s, clamp(post.kill * sMan * e * scale(b.loc), 0, .5)); if (k > 0.001) rep.items.push({ k:'info', t:`Brigade operations in ${thd.name} destroyed ${M(k)} infected.` }); }
     if (b.posture === 'relief') { const m = save(s, .008); th.order = Math.min(100, th.order + 6); add(s,'morale',1); add(s,'trust',1); if (m > .001) rep.items.push({ k:'good', t:`Relief operations secured ${M(m)} civilians.` }); }
   }
@@ -1183,7 +1212,7 @@ function endTurn(s) {
     const tr = s.regions[tf.loc]; const te = e * b.u[tf.bn] * (hasD(s, 'mission') ? 1.5 : 1);
     contain(s, .14 * te + (traitOf(s, tf.bn).contain || 0), tf.loc);
     if (tr.z > 0) { const k = doKill(s, clamp(.045 * te * scale(tf.loc) * vetKill(s, [tf.bn]), 0, .4), tf.loc); if (k > .001) rep.items.push({ k:'info', t:`Task Force ${UNITS[tf.bn].name} in ${RD[tf.loc].name} destroyed ${M(k)} infected.` }); }
-    if (!tr.fallen) tr.order = Math.min(100, tr.order + 2);
+    if (!tr.fallen) { tr.order = Math.min(100, tr.order + 2); tr.quar = clamp(tr.quar + .03, 0, .95); }
     if (RP) vaccinate(s, .03 * vaxScale(tf.loc), tf.loc);
   }
 
@@ -1326,11 +1355,13 @@ function endTurn(s) {
   s.research += rr; }
   rep.research = rr;
 
+  // 4b. containment fades, regions stabilize or slip
+  settleControl(s, rep);
+
   // 5. directives
   if (s.directive) checkDirective(s, rep, s.turn >= s.directive.deadline);
 
   // 6. cleanup
-  for (const r of REGIONS) s.regions[r.id].contain = 0;
   s.deck.discard.push(...s.deck.hand); s.deck.hand = [];
   rep.after = { h:survivors(s), z:infected(s), research:s.research, pers:personnel(s) };
   rep.restoredAfter = restoredCount(s); rep.vaxAfter = avgVax(s);
@@ -1375,14 +1406,14 @@ function checkOver(s) {
 function score(s) {
   const sf = survivors(s) / START_POP;
   const n = restoredCount(s);
-  let v = sf * 5000 + s.stats.saved * 8 + personnel(s) / NOMINAL_TOTAL * 1500 + activeLabs(s).length * 200 + Math.min(100, s.research) * 15 + (s.cureFound ? 2500 : 0) + Math.min(s.turn, s.cureFound || s.turn) * 20
+  let v = sf * 5000 + s.stats.saved * 8 + personnel(s) / NOMINAL_TOTAL * 1500 + activeLabs(s).length * 200 + Math.min(100, s.research) * 15 + (s.cureFound ? 2500 : 0) + Math.min(s.turn, s.cureFound || s.turn) * 20 + REGIONS.filter(r => s.regions[r.id].stabbed).length * 100
     + (s.phase === 'restore' ? n * 250 + (s.stats.cured || 0) * 4 + (n >= REGIONS.length ? 2000 : 0) : 0);
   return Math.round(v * DIFFS[s.diff].mult);
 }
 
 return { REGIONS, RD, LINKS, ADJ, UNITS, ENABLERS, NOMINAL, NOMINAL_TOTAL, START_POP, DIFFS, COMMANDERS, CMD, CARDS, EVENTS, POSTURES, MUTATIONS,
   RESTORE_WEEKS, RESTORE_REQ, restoreReady, restoredCount, avgVax, beginRestoration, endAtCure,
-  MIN_DECK, burnValue, canBurn, burnCard, SORTIES, WORKS, canSortie, flySortie, canBuild, buildWork, worksIn, engCrew, airWorst,
+  STAB, canStabilize, presentIn, MIN_DECK, burnValue, canBurn, burnCard, SORTIES, WORKS, canSortie, flySortie, canBuild, buildWork, worksIn, engCrew, airWorst,
   DOCTRINES, RANKS, TRAITS, CHOKE, CHOKE_LOSS, HEMI, BNS, TF_RANGE, hasD, takeDoctrine, mainBns, allMan, rankIdx, vetOf, vetKillOne, vetCas,
   tfCandidate, tfCost, canSendTF, sendTF, recallCost, canRecallTF, recallTF, monthOf, seasonOf, seasonMult, chokesLost, caps,
   baseId, isUp, def, costOf, canUpgrade, cardName, migrate,

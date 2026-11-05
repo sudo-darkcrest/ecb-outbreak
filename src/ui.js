@@ -15,7 +15,7 @@ function get(k) { try { const t = localStorage.getItem(k); return t ? JSON.parse
 function drop(k) { try { localStorage.removeItem(k); } catch (e) {} }
 function meta() { return Object.assign({ runs:0, wins:0, best:0, maxWeeks:0 }, get(META_KEY) || {}); }
 
-const SHORT = { CAN:'Canada', USW:'US West', USE:'US East', MEX:'Central America', CAR:'Caribbean', SAN:'Andes', BRA:'Brazil', SCO:'S. Cone', WEU:'W. Europe', CEU:'C. Europe', SEU:'Med.', NOR:'Nordic', EEU:'E. Europe', RUS:'Russia', SIB:'Siberia', MDE:'Mid. East', NAF:'N. Africa', WAF:'W. Africa', CAF:'C. Africa', EAF:'E. Africa', SAF:'S. Africa', CAS:'C. Asia', SAS:'S. Asia', CHN:'China', EAS:'Japan/Korea', SEA:'SE Asia', IDN:'Indonesia', AUS:'Australia' };
+const SHORT = { CAN:'Canada', USW:'US West', USE:'US East', MEX:'Central America', CAR:'Caribbean', SAN:'Andes', BRA:'Brazil', SCO:'S. Cone', WEU:'W. Europe', CEU:'C. Europe', SEU:'Med.', NOR:'Nordic', EEU:'E. Europe', RUS:'Russia', SIB:'Siberia', MDE:'Mid. East', NAF:'N. Africa', WAF:'W. Africa', CAF:'C. Africa', EAF:'E. Africa', SAF:'S. Africa', CAS:'C. Asia', SAS:'S. Asia', CHN:'China', EAS:'Japan/Korea/Taiwan', SEA:'SE Asia', IDN:'Indonesia', AUS:'Australia' };
 const LOFF = { CEU:[-5,0], EEU:[6,0], SEU:[2,2], WEU:[-3,0], CAR:[6,2], NOR:[-4,0] };
 const ICON = {
   COMBAT:'<path d="M2 10l6-6 6 6M2 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2"/>',
@@ -85,6 +85,7 @@ function buildMap() {
   el('path', { d:MD.outline, fill:'#0f1a1e', stroke:'#1d2c31', 'stroke-width':.8 }, svg);
   el('path', { d:MD.grat, fill:'none', stroke:'#172429', 'stroke-width':.4 }, svg);
   const gR = el('g', { id:'g-reg' }, svg), gH = el('g', { id:'g-hatch' }, svg);
+  el('g', { id:'g-sel', 'pointer-events':'none' }, svg);
   el('g', { id:'g-route' }, svg); el('g', { id:'g-arcs' }, svg); el('g', { id:'g-lbl' }, svg); el('g', { id:'g-mk' }, svg); el('g', { id:'g-brig' }, svg);
   for (const r of E.REGIONS) {
     const p = el('path', { d:MD.regions[r.id].d, class:'rg', 'data-id':r.id, tabindex:'-1' }, gR);
@@ -111,9 +112,13 @@ function renderMap() {
     const id = p.dataset.id, rs = S.regions[id];
     p.setAttribute('fill', regionFill(rs));
     p.classList.toggle('sel', id === sel); p.classList.toggle('theater', id === S.b.loc && id !== sel);
-    p.querySelector('title').textContent = `${E.RD[id].name} — ${E.status(rs)}, ${fmtPct(rs.z)} infected`;
+    p.querySelector('title').textContent = `${E.RD[id].name} — ${E.status(rs)}, ${fmtPct(rs.z)} infected${rs.stab > 0 ? ', stabilized' : ''}`;
   }
   for (const h of $$('#g-hatch .hatch')) h.setAttribute('opacity', S.regions[h.dataset.id].fallen ? 1 : 0);
+  // selection + theater outlines on their own layer so neighboring land never covers them
+  const gS = $('#g-sel'); gS.innerHTML = '';
+  if (S.b.loc !== sel) el('path', { d:MD.regions[S.b.loc].d, class:'selhl th' }, gS);
+  if (sel) el('path', { d:MD.regions[sel].d, class:'selhl' }, gS);
   for (const g of $$('#g-lbl g')) {
     const id = g.dataset.id, rs = S.regions[id];
     const show = !compact || id === sel || id === S.b.loc;
@@ -132,6 +137,14 @@ function renderMap() {
     el('polygon', { points:'0,-4 3.5,-2 3.5,2 0,4 -3.5,2 -3.5,-2', fill: l.active ? '#5fc4a8' : '#3b4744', stroke:'#0b1214', 'stroke-width':.8 }, g);
     if (l.active) el('circle', { r:1.2, fill:'#0b1214' }, g); else el('path', { d:'M-2.2 -2.2L2.2 2.2M2.2 -2.2L-2.2 2.2', stroke:'#ff6a5e', 'stroke-width':1 }, g);
     const t = el('title', {}, g); t.textContent = l.name + (l.active ? '' : ' (lost)');
+  }
+  for (const r of E.REGIONS) {
+    const rs = S.regions[r.id]; if (!(rs.stab > 0) || rs.fallen) continue;
+    const [x, y] = r.a; const o = LOFF[r.id] || [0,0]; const lg = $(`#g-lbl g[data-id="${r.id}"]`); let hw = 14; try { hw = lg.children[0].getComputedTextLength() / 2; } catch (e) {}
+    const lk = (lg && lg.children[0].getAttribute('font-size') / 6.6) || 1; const hasLab = S.labs.some(l => l.region === r.id);
+    const g5 = el('g', { class:'stabmk', transform:`translate(${x + o[0] + hw + (hasLab ? 13 : 5) * lk},${y + o[1] - 2.2 * lk}) scale(${lk})` }, gM);
+    el('path', { d:'M0 -3.6 L3 -2.4 L3 .4 Q3 2.6 0 3.8 Q-3 2.6 -3 .4 L-3 -2.4 Z', fill:'#a9c9ff', stroke:'#0b1214', 'stroke-width':.8 }, g5); el('path', { d:'M-1.4 .1 L-.3 1.3 L1.6 -1.2', fill:'none', stroke:'#0b1214', 'stroke-width':.8 }, g5);
+    const t5 = el('title', {}, g5); t5.textContent = `${r.name}: stabilized` + (E.presentIn(S, r.id) ? '' : `, ${rs.stab} weeks left`);
   }
   for (const r of E.REGIONS) {
     const sz = S.regions[r.id].sz; if (!sz) continue; const [x, y] = r.a; const o = LOFF[r.id] || [0,0];
@@ -249,7 +262,7 @@ function shell() {
 }
 function renderLegend() {
   const L = $('#legend'); if (!L) return; const ph = S && S.phase === 'restore' ? 'r' : 'o'; if (L.dataset.ph === ph) return; L.dataset.ph = ph;
-  L.innerHTML = (ph === 'r' ? `<span><i class="sw" style="background:${RESTORED}"></i>Restored</span>` : '') + [['#2b3d3a','Clear'],[infColor(.0004),'<0.1%'],[infColor(.01),'1%'],[infColor(.06),'6%'],[infColor(.3),'30%+'],['#3a1012','Fallen']].map(([c, t]) => `<span><i class="sw" style="background:${c}"></i>${t}</span>`).join('') + '<span><i class="sw" style="background:#5fc4a8;border-radius:50%"></i>Lab</span><span><i class="sw" style="background:#7fc28c"></i>Safe zone</span>';
+  L.innerHTML = (ph === 'r' ? `<span><i class="sw" style="background:${RESTORED}"></i>Restored</span>` : '') + [['#2b3d3a','Clear'],[infColor(.0004),'<0.1%'],[infColor(.01),'1%'],[infColor(.06),'6%'],[infColor(.3),'30%+'],['#3a1012','Fallen']].map(([c, t]) => `<span><i class="sw" style="background:${c}"></i>${t}</span>`).join('') + '<span><i class="sw" style="background:#5fc4a8;border-radius:50%"></i>Lab</span><span><i class="sw" style="background:#7fc28c"></i>Safe zone</span><span><i class="sw sh"></i>Stable</span>';
 }
 
 function render() {
@@ -288,7 +301,7 @@ function renderRegion() {
   else { const c = E.deployCost(S, id); const ok = E.canDeploy(S, id); act = `<button class="btn" id="b-deploy" ${ok === true ? '' : 'disabled'}>Deploy here</button><span class="note">${c.cp} CP · ${c.fuel} fuel · ${c.hops} ${c.hops === 1 ? 'hop' : 'hops'}${ok === true ? '' : '<br><span style="color:#ff8a7e">' + esc(ok) + '</span>'}</span>`; }
   const h = rs.h, z = rs.z, dd = rs.d;
   $('#reg').innerHTML = `
-    <div class="reg-h"><div><div class="n">${esc(rd.name)}</div><div class="note">${fmtPop(rd.pop)} people · ${rd.clim} · ${rd.base ? 'allied base' : 'no allied base'}</div></div><span class="chip st-${st}">${st}</span></div>
+    <div class="reg-h"><div><div class="n">${esc(rd.name)}</div><div class="note">${fmtPop(rd.pop)} people · ${rd.clim} · ${rd.base ? 'allied base' : 'no allied base'}</div></div><span class="chips">${rs.stab > 0 ? '<span class="chip st-Stable">Stable</span>' : ''}<span class="chip st-${st}">${st}</span></span></div>
     <div class="popbar" title="Healthy / infected / dead"><i style="width:${h * 100}%;background:#6fa58a"></i><i style="width:${z * 100}%;background:#e2483b"></i><i style="width:${dd * 100}%;background:#3c4446"></i></div>
     <dl class="kv">
       <dt>Healthy</dt><dd>${fmtPop(h * rd.pop)} (${fmtPct(h)})</dd>
@@ -296,6 +309,8 @@ function renderRegion() {
       <dt>Dead</dt><dd>${fmtPop(dd * rd.pop)}</dd>
       <dt>Civil order</dt><dd>${Math.round(rs.order)}/100</dd>
       <dt>Quarantine</dt><dd>${Math.round(rs.quar * 100)}%</dd>
+      <dt>Containment</dt><dd>${Math.round(rs.contain * 100)}%</dd>
+      ${rs.stab > 0 ? `<dt>Stability</dt><dd style="color:var(--stab)">Stabilized · ${E.presentIn(S, id) ? 'holding while you are here' : rs.stab + (rs.stab === 1 ? ' week' : ' weeks') + ' left'}</dd>` : ''}
       ${S.phase === 'restore' ? `<dt>Cure coverage</dt><dd style="color:var(--t-cure)">${Math.round((rs.vax || 0) * 100)}%</dd>` : ''}
       ${rs.sz ? `<dt>Safe zones</dt><dd>${rs.sz}/3</dd>` : ''}
       ${rs.safe > .0001 ? `<dt>In secured camps</dt><dd>${fmtPop(rs.safe * rd.pop)}</dd>` : ''}
@@ -306,7 +321,7 @@ function renderRegion() {
       ${E.worksIn(S, id).length ? `<dt>Field works</dt><dd style="color:var(--amber)">${E.worksIn(S, id).map(k => esc(E.WORKS[k].name)).join(', ')}</dd>` : ''}
       ${S.b.eng && S.b.eng.loc === id ? `<dt>Building</dt><dd>${esc(E.WORKS[S.b.eng.id].name)} ${S.b.eng.prog}/${E.WORKS[S.b.eng.id].weeks}</dd>` : ''}
     </dl>
-    ${S.phase === 'restore' && !rs.restored ? restoreChecklist(rs) : ''}
+    ${S.phase === 'restore' && !rs.restored ? restoreChecklist(rs) : S.phase !== 'restore' ? stabChecklist(rs, id) : ''}
     <div class="reg-act">${act}</div>
     ${tfBlock(id, isHere)}
     ${E.CHOKE[id] && !rs.fallen ? `<div class="note" style="margin-top:8px">If ${esc(rd.name)} falls, the ${esc(E.CHOKE[id])} closes and every resupply shrinks ${Math.round(E.CHOKE_LOSS * 100)}%.</div>` : ''}`;
@@ -344,6 +359,12 @@ function restoreChecklist(rs) {
   if (rs.fallen) return `<ul class="check"><li class="hd">To reclaim this fallen region</li>${row(rs.z < .1, `Infected under 10% (now ${fmtPct(rs.z)})`)}</ul>`;
   return `<ul class="check"><li class="hd">To restore this region</li>${row(rs.z < Q.z, `Infected under 0.5% (now ${fmtPct(rs.z)})`)}${row(rs.order >= Q.order, `Civil order 50+ (now ${Math.round(rs.order)})`)}${row((rs.vax || 0) >= Q.vax, `Cure coverage 50%+ (now ${Math.round((rs.vax || 0) * 100)}%)`)}</ul>`;
 }
+function stabChecklist(rs, id) {
+  if (rs.fallen || rs.stab > 0) return '';
+  if (rs.z <= 0 && rs.contain < .005) return '';
+  const Q = E.STAB; const row = (ok, t) => `<li class="${ok ? 'ok' : ''}"><span>${ok ? '✓' : '○'}</span>${t}</li>`;
+  return `<ul class="check stab"><li class="hd">To stabilize this region</li>${row(rs.contain >= Q.contain, `Containment ${Math.round(Q.contain * 100)}%+ (now ${Math.round(rs.contain * 100)}%)`)}${row(rs.quar >= Q.quar, `Quarantine ${Math.round(Q.quar * 100)}%+ (now ${Math.round(rs.quar * 100)}%)`)}${row(rs.z < Q.z, `Infected under ${Math.round(Q.z * 100)}% (now ${fmtPct(rs.z)})`)}<li class="nt">A stable region holds on its own for about ${Q.weeks} weeks after you leave.</li></ul>`;
+}
 function meter(label, v, max, color, fmt) { return `<div class="meter"><div class="top"><span>${label}</span><span class="mono">${fmt ? fmt(v) : Math.round(v)}</span></div><div class="bar"><i style="width:${Math.max(0, Math.min(100, v / max * 100))}%;background:${color}"></i></div></div>`; }
 function renderSide() {
   for (const b of $$('.tabs button')) b.setAttribute('aria-selected', b.dataset.tab === tab);
@@ -380,7 +401,7 @@ function renderSide() {
     for (const x of $$('.posture button', body)) x.onclick = () => { E.setPosture(S, x.dataset.p); save(); render(); };
   } else if (tab === 'regions') {
     const list = E.REGIONS.map(r => ({ r, rs:S.regions[r.id] })).sort((a, c) => (S.phase === 'restore' ? (a.rs.restored - c.rs.restored) : 0) || (c.rs.fallen - a.rs.fallen) || (c.rs.z - a.rs.z) || (c.r.pop - a.r.pop));
-    body.innerHTML = `<div class="sec"><span class="lbl">All regions · tap to inspect</span><div class="rlist">${list.map(({ r, rs }) => `<button class="rrow ${r.id === (sel || S.b.loc) ? 'sel' : ''}" data-id="${r.id}"><i class="dot" style="background:${regionFill(rs)}"></i><span>${esc(r.name)}${r.id === S.b.loc ? ' <span style="color:var(--friend)">◆</span>' : ''}${E.labIn(S, r.id) ? ' <span style="color:var(--t-research)">⬢</span>' : ''}</span><span class="chip st-${E.status(rs)}" style="font-size:9px">${E.status(rs)}</span><span class="mono">${S.phase === 'restore' ? (rs.restored ? '✓' : `${Math.round((rs.vax || 0) * 100)}% covered`) : rs.fallen ? '—' : fmtPct(rs.z)}</span></button>`).join('')}</div></div>`;
+    body.innerHTML = `<div class="sec"><span class="lbl">All regions · tap to inspect</span><div class="rlist">${list.map(({ r, rs }) => `<button class="rrow ${r.id === (sel || S.b.loc) ? 'sel' : ''}" data-id="${r.id}"><i class="dot" style="background:${regionFill(rs)}"></i><span>${esc(r.name)}${r.id === S.b.loc ? ' <span style="color:var(--friend)">◆</span>' : ''}${E.labIn(S, r.id) ? ' <span style="color:var(--t-research)">⬢</span>' : ''}${rs.stab > 0 ? ' <i class="sw sh" title="Stabilized"></i>' : ''}</span><span class="chip st-${E.status(rs)}" style="font-size:9px">${E.status(rs)}</span><span class="mono">${S.phase === 'restore' ? (rs.restored ? '✓' : `${Math.round((rs.vax || 0) * 100)}% covered`) : rs.fallen ? '—' : fmtPct(rs.z)}</span></button>`).join('')}</div></div>`;
     for (const x of $$('.rrow', body)) x.onclick = () => selectRegion(x.dataset.id, true);
   } else if (tab === 'threat') {
     const P = S.path; const rate = v => v < .95 ? 'Low' : v < 1.1 ? 'Moderate' : v < 1.3 ? 'High' : 'Extreme';
@@ -583,28 +604,53 @@ const TUT = (function () {
     { id:'dir', when:noModal, target:'#dir', title:'HQ directive', text:'Higher command gives you goals with a deadline. Finish them for a reward and a new card.', next:'Next' },
     { id:'done', when:noModal, target:null, title:'You are ready', text:'Keep the labs safe until cure research reaches 100%. Finish week 2 on your own. How to Play and these tips are in the Menu any time.', next:'Got it' },
   ];
-  let step = -1, box = null, hl = null, shownStep = -1;
+  // one-time tips for things that only happen later in a run; each shows the first time it comes up
+  const inDeck = cls => () => !!$('#modal .deckgrid .card.' + cls);
+  const EXTRA = [
+    { id:'dirnew', when:() => noModal() && !!(S && S.directive) && !!$('#dir .t'), target:'#dir', title:'New HQ directive', text:'This box shows what higher command wants and how many weeks you have. Do it before the deadline to earn Command Trust and a new card. If time runs out you lose Trust and Morale.' },
+    { id:'reward', when:() => !!$('#modal .rewards'), target:'#modal .rewards', place:'top', title:() => S && S.pendingReward && S.pendingReward.reason === 'Directive complete' ? 'Directive complete' : 'New orders', text:'Tap one card to add it to your deck. Or use the buttons at the bottom: upgrade a card you already have, remove a weak card, or take a supply drop.' },
+    { id:'remove', when:inDeck('rm'), target:'#modal .deckgrid', place:'top', title:'Remove a card', text:'Tap the card you want gone. It leaves your deck for good, so your better cards come up more often. Tap Back if you change your mind.' },
+    { id:'upgrade', when:inDeck('upc'), target:'#modal .deckgrid', place:'top', title:'Upgrade a card', text:'Tap a card to make it cost 1 Command Point less for the rest of the run. Upgraded cards have a + after their name. Tap Back if you change your mind.' },
+    { id:'stabhow', when:() => noModal() && !!S && S.turn >= 2 && !!$('#reg .check.stab'), target:'#reg .check.stab', title:'Stabilize a region', text:'Raise containment and quarantine here and keep the infection low. When all three are checked, the region holds on its own for a while, so you can move the brigade to the next trouble spot.' },
+    { id:'stabbed', when:() => noModal() && !!S && E.REGIONS.some(r => S.regions[r.id].stab > 0), target:'.mapwrap', title:'Region stabilized', text:'The blue shield on the map marks a stable region. It keeps itself under control for about 6 weeks after you leave. Send the brigade where it is needed next, and come back before the time runs out.' },
+    { id:'burn', when:() => noModal() && !!S && S.turn >= 3 && !!$('#hand .burn'), target:'#hand .burn', title:'Burn a card', text:'Don\'t need a card? Tap its flame button twice. The card leaves your deck for good and you get back half its cost in Command Points.' },
+  ];
+  const XKEY = 'ecb_tips';
+  let step = -1, box = null, hl = null, shownStep = -1, curX = null;
   const get = () => { try { return localStorage.getItem(KEY); } catch (e) { return null; } };
   const put = v => { try { localStorage.setItem(KEY, v); } catch (e) {} };
-  function maybeStart() { const v = get(); if (v === 'done') return; if (v != null && !isNaN(+v)) { step = +v; sync(); return; } if (S && S.turn <= 1) start(false); }
-  function start(replay) { step = replay && !(S && S.crisis && $('#modal .opts')) ? 1 : 0; shownStep = -1; put(String(step)); sync(); }
-  function finish() { step = -1; put('done'); hide(); }
+  const seen = () => { try { return new Set(JSON.parse(localStorage.getItem(XKEY) || '[]')); } catch (e) { return new Set(); } };
+  const markSeen = id => { const s2 = seen(); s2.add(id); try { localStorage.setItem(XKEY, JSON.stringify([...s2])); } catch (e) {} };
+  function maybeStart() { const v = get(); if (v === 'done' || v === 'skip') return sync(); if (v != null && !isNaN(+v)) { step = +v; sync(); return; } if (S && S.turn <= 1) start(false); }
+  function start(replay) { step = replay && !(S && S.crisis && $('#modal .opts')) ? 1 : 0; shownStep = -1; curX = null; if (replay) { try { localStorage.removeItem(XKEY); } catch (e) {} } put(String(step)); sync(); }
+  function finish(skipAll) { step = -1; curX = null; put(skipAll === true ? 'skip' : 'done'); hide(); }
   function advance() { step++; shownStep = -1; if (step >= STEPS.length) return finish(); put(String(step)); sync(); }
+  function closeX() { curX = null; shownStep = -1; hide(); sync(); }
+  // which tip should be on screen right now: the guided tour first, then any one-time tip
+  function current() {
+    if (step >= 0) { const st = STEPS[step]; if (st && st.when()) { curX = null; return { st, key:'m' + step, label:`Tip ${step + 1} of ${STEPS.length}`, main:true }; } }
+    if (get() === 'skip' || !S) return null;
+    if (curX && !curX.when()) curX = null;
+    if (!curX) { const sn = seen(); curX = EXTRA.find(x => !sn.has(x.id) && x.when()) || null; if (curX) markSeen(curX.id); }
+    return curX ? { st:curX, key:'x' + curX.id, label:'New tip', main:false } : null;
+  }
   function ev(name) { if (step < 0) return; const st = STEPS[step]; if (st && st.until === name) advance(); }
   function hide() { if (box) box.style.display = 'none'; if (hl) { hl.classList.remove('tut-hl'); hl = null; } }
   function sync() { requestAnimationFrame(draw); }
   function draw() {
-    if (step < 0) return hide();
-    const st = STEPS[step]; if (!st || !S) return hide();
-    if (!st.when()) return hide();
-    if (st.pre && shownStep !== step) st.pre();
+    if (!S) return hide();
+    const cur = current(); if (!cur) return hide();
+    const st = cur.st;
+    if (st.pre && shownStep !== cur.key) st.pre();
     const tgt = st.target ? document.querySelector(st.target) : null;
     if (!box) { box = document.createElement('div'); box.id = 'tut'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); }
-    if (shownStep !== step) {
-      box.innerHTML = `<div class="tut-k">Tip ${step + 1} of ${STEPS.length}</div><div class="tut-t">${st.title}</div><p>${st.text}</p><div class="tut-b">${st.next ? `<button class="btn sm" id="tut-next">${st.next}</button>` : ''}<button class="tut-skip" id="tut-skip">Skip all tips</button></div><i class="tut-arrow"></i>`;
-      box.querySelector('#tut-skip').onclick = finish; const nb = box.querySelector('#tut-next'); if (nb) nb.onclick = advance;
+    if (shownStep !== cur.key) {
+      const title = typeof st.title === 'function' ? st.title() : st.title;
+      const nextLbl = cur.main ? st.next : 'Got it';
+      box.innerHTML = `<div class="tut-k">${cur.label}</div><div class="tut-t">${title}</div><p>${st.text}</p><div class="tut-b">${nextLbl ? `<button class="btn sm" id="tut-next">${nextLbl}</button>` : ''}<button class="tut-skip" id="tut-skip">${cur.main ? 'Skip all tips' : 'Turn off tips'}</button></div><i class="tut-arrow"></i>`;
+      box.querySelector('#tut-skip').onclick = () => finish(true); const nb = box.querySelector('#tut-next'); if (nb) nb.onclick = cur.main ? advance : closeX;
       if (tgt && window.innerWidth <= 820) { const r = tgt.getBoundingClientRect(); if (r.top < 60 || r.bottom > window.innerHeight - 60) tgt.scrollIntoView({ block:'center', behavior:'smooth' }); setTimeout(sync, 420); }
-      shownStep = step;
+      shownStep = cur.key;
     }
     if (hl && hl !== tgt) hl.classList.remove('tut-hl'); hl = tgt; if (hl && st.target !== '.mapwrap') hl.classList.add('tut-hl');
     box.style.display = 'block';
@@ -621,7 +667,7 @@ const TUT = (function () {
     box.style.left = left + 'px'; box.style.top = top + 'px';
     if (below === null) arrow.style.display = 'none'; else { arrow.style.display = 'block'; arrow.className = 'tut-arrow ' + (below ? 'up' : 'down'); arrow.style.left = Math.min(Math.max(14, cx - left), bw - 14) + 'px'; }
   }
-  return { start, maybeStart, ev, sync, finish, active:() => step >= 0 };
+  return { start, maybeStart, ev, sync, finish, active:() => step >= 0 || !!curX };
 })();
 window.addEventListener('scroll', () => TUT.sync(), { passive:true });
 
@@ -646,6 +692,7 @@ function doEndTurn() {
   for (const id of rep.fell) fxQ.push(() => fxPulse(id, '#ff4a3a', 3));
   const nowRest = E.REGIONS.filter(r => S.regions[r.id].restored && !before.rest.includes(r.id)).map(r => r.id);
   if (nowRest.length) { fxQ.push(() => SFX.play('chime')); for (const id of nowRest) fxQ.push(() => fxPulse(id, '#6fe0a0', 3)); }
+  if (rep.stab && rep.stab.length) { fxQ.push(() => SFX.play('chime')); for (const id of rep.stab) fxQ.push(() => fxPulse(id, '#a9c9ff', 3)); }
   pendingSitrep = rep; sel = null; flow();
 }
 function showCrisis() {
@@ -732,6 +779,7 @@ function showGameOver() {
         <div class="stat"><span class="lbl">Weeks</span><span class="v mono">${S.turn}</span></div>
         <div class="stat"><span class="lbl">Infected destroyed</span><span class="v mono">${fmtPop(S.stats.kills)}</span></div>
         <div class="stat"><span class="lbl">${S.phase === 'restore' ? 'Infected cured' : 'Civilians saved'}</span><span class="v mono">${fmtPop(S.phase === 'restore' ? (S.stats.cured || 0) : S.stats.saved)}</span></div>
+        <div class="stat"><span class="lbl">Regions stabilized</span><span class="v mono" style="color:var(--stab)">${E.REGIONS.filter(r => S.regions[r.id].stabbed).length}</span></div>
         <div class="stat"><span class="lbl">Brigade losses</span><span class="v mono">${S.stats.kia.toLocaleString()}</span></div>
         <div class="stat"><span class="lbl">Best score</span><span class="v mono">${mt.best.toLocaleString()}</span></div>
       </div>
@@ -763,7 +811,8 @@ function howHTML() {
     <li><b>Crises</b> pop up most weeks. Pick one of the choices. Each choice shows what it costs.</li>
     <li><b>The map</b> shows every region's infection. Click a region to inspect it, then press <b>Deploy here</b> to move the brigade (costs Command Points and fuel).</li>
     <li><b>Two free jobs every week</b> (buttons under the Command Points): <b>Air tasking</b> flies one aviation mission (scout with drones, a gun run, MEDEVAC, heavy lift, or stand down to rest the crews), and <b>Engineers</b> put a week of work into a Barrier Line, Fire Base, Field Hospital or Supply Depot where the brigade is. Neither costs Command Points.</li>
-    <li><b>Posture</b> sets what the brigade does on its own every week: Assault kills more, Hold contains the spread, Relief saves civilians.</li>
+    <li><b>Posture</b> sets what the brigade does on its own every week: Assault kills more, Hold contains the spread and mans checkpoints (quarantine up), Relief saves civilians.</li>
+    <li><b>Stabilize regions, then move on.</b> Containment builds up week after week where your troops work, and fades slowly after they leave. Get a region to containment 50%+, quarantine 35%+ and infected under 3% and it becomes <b>Stabilized</b> (blue shield on the map). A stable region holds on its own for about ${E.STAB.weeks} weeks after you leave, so you can take the brigade to the next trouble spot. The region card shows a checklist. The first time each region is stabilized you get Trust +3 and score points.</li>
     <li><b>Press End Week.</b> The outbreak spreads, labs work, your stocks are resupplied, and you get a situation report.</li>
     <li><b>Phase II: Restoration.</b> When the cure is found you can stop and take the win, or keep going for ${E.RESTORE_WEEKS} more weeks. The cure spreads from the labs. Cure the infected, reclaim fallen regions and restore order. A region is restored when infected are under 0.5%, civil order is 50 or more, and cure coverage is 50% or more. Each restored region turns green and adds to your score.</li>
     <li><b>Protect the labs</b> (hexagon icons). Labs work faster in calm regions and with your brigade on site. Recover Tissue Samples speeds the cure.</li>
@@ -865,5 +914,5 @@ function boot(data) {
   else showTitle();
 }
 try { window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {}); } catch (e) { boot({}); }
-window.__ECB = { get S() { return S; }, E, flow: () => flow() };
+window.__ECB = { get S() { return S; }, E, flow: () => flow(), render: () => render(), clearSel: () => { sel = null; } };
 })();
