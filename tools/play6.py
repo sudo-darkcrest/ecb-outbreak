@@ -28,6 +28,20 @@ with sync_playwright() as p:
     pg.evaluate("(()=>{const S=__ECB.S;S.regions[S.b.loc].stab=0;S.regions[S.b.loc].z=.004;S.regions[S.b.loc].contain=.3;__ECB.render()})()")
     pg.wait_for_timeout(300)
     print('checklist rows:', pg.locator('#reg .check.stab li').count())
+    print('host forces row:', pg.locator('#reg dt:has-text("Host forces")').count(), '|', pg.evaluate("(()=>{const d=[...document.querySelectorAll('#reg dt')].find(x=>x.textContent==='Host forces');return d?d.nextElementSibling.textContent:null})()"))
+    # burn: card goes to discard, deck size unchanged; unplayed cards stay in hand after End Week
+    before = pg.evaluate("(()=>{const S=__ECB.S;return {deck:__ECB.E.deckList(S).length, disc:S.deck.discard.length, hand:S.deck.hand.length}})()")
+    pg.locator('#hand .burn').first.click(); pg.wait_for_timeout(150); pg.locator('#hand .burn').first.click(); pg.wait_for_timeout(700)
+    after = pg.evaluate("(()=>{const S=__ECB.S;return {deck:__ECB.E.deckList(S).length, disc:S.deck.discard.length, hand:S.deck.hand.length}})()")
+    print('burn keeps deck size:', before['deck'] == after['deck'], '| to discard:', after['disc'] == before['disc'] + 1, '| hand', before['hand'], '->', after['hand'])
+    kept = pg.evaluate("__ECB.S.deck.hand.slice()")
+    pg.click('#b-end'); pg.wait_for_timeout(900)
+    for _ in range(4):
+        if pg.locator('#modal #b-cont').count(): pg.click('#modal #b-cont'); pg.wait_for_timeout(1500)
+        elif pg.locator('#modal .opt').count(): pg.locator('#modal .opt').first.click(); pg.wait_for_timeout(600)
+    nh = pg.evaluate("__ECB.S.deck.hand.slice()")
+    print('kept cards still in hand next week:', all(k in nh for k in kept), '| hand size', len(nh))
+    pg.screenshot(path=OUT + 'p6_week2.png')
     pg.screenshot(path=OUT + 'p6_check.png')
     b.close()
     # one-time tips with the tutorial finished

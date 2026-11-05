@@ -207,14 +207,14 @@ function setupPanZoom(svg) {
     if (Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y) > 5) dragMoved = true;
     if (dragMoved && view.w < MD.W) { view.x = clampV(drag.vx - dx, MD.W - view.w); view.y = clampV(drag.vy - dy, MD.H - view.h); svg.setAttribute('viewBox', `${view.x} ${view.y} ${view.w} ${view.h}`); }
   });
-  window.addEventListener('pointerup', () => { drag = null; setTimeout(() => dragMoved = false, 0); });
+  window.addEventListener('pointerup', () => { if (drag && dragMoved) requestAnimationFrame(placeRegionCard); drag = null; setTimeout(() => dragMoved = false, 0); });
   svg.addEventListener('wheel', e => { e.preventDefault(); const r = svg.getBoundingClientRect(); const fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height; zoom(e.deltaY < 0 ? .8 : 1.25, fx, fy); }, { passive:false });
 }
 const clampV = (v, max) => Math.max(0, Math.min(Math.max(0, max), v));
 function zoom(f, fx = .5, fy = .5) {
   const nw = Math.max(MD.W / 5, Math.min(MD.W, view.w * f)), nh = nw * MD.H / MD.W;
   view.x = clampV(view.x + (view.w - nw) * fx, MD.W - nw); view.y = clampV(view.y + (view.h - nh) * fy, MD.H - nh); view.w = nw; view.h = nh;
-  renderMap();
+  renderMap(); requestAnimationFrame(placeRegionCard);
 }
 function zoomTo(id) { const [x, y] = anchor(id); const nw = MD.W / 2.5, nh = nw * MD.H / MD.W; view = { x:clampV(x - nw / 2, MD.W - nw), y:clampV(y - nh / 2, MD.H - nh), w:nw, h:nh }; renderMap(); }
 
@@ -256,7 +256,7 @@ function shell() {
   mapBuilt = false;
   $('#b-end').onclick = doEndTurn;
   $('#b-menu').onclick = showMenu; sndBtn(); $('#b-snd').onclick = () => { SFX.setMuted(!SFX.isMuted()); sndBtn(); if (!SFX.isMuted()) SFX.play('click'); };
-  $('#z-in').onclick = () => zoom(.7); $('#z-out').onclick = () => zoom(1.4); $('#z-reset').onclick = () => { view = { x:0, y:0, w:MD.W, h:MD.H }; renderMap(); };
+  $('#z-in').onclick = () => zoom(.7); $('#z-out').onclick = () => zoom(1.4); $('#z-reset').onclick = () => { view = { x:0, y:0, w:MD.W, h:MD.H }; renderMap(); requestAnimationFrame(placeRegionCard); };
   for (const b of $$('.tabs button')) b.onclick = () => { tab = b.dataset.tab; renderSide(); };
   renderLegend();
 }
@@ -292,8 +292,38 @@ function renderDirective() {
   const left = d.deadline - S.turn;
   box.innerHTML = `<div style="display:flex;justify-content:space-between;gap:10px"><span class="lbl">HQ directive</span><span class="dl">${left <= 0 ? 'DUE THIS WEEK' : left + (left === 1 ? ' WEEK' : ' WEEKS') + ' LEFT'}</span></div><div class="t">${esc(d.text)}</div><div class="rw">Reward: ${esc(d.reward)} + a new card</div>`;
 }
+// the region box can shrink to its title bar, and it moves to whichever bottom corner hides less of the map
+let regMin = (() => { try { return localStorage.getItem('ecb_regmin') === '1'; } catch (e) { return false; } })(), regSide = 'right';
+function setRegMin(v) { regMin = !!v; try { localStorage.setItem('ecb_regmin', regMin ? '1' : '0'); } catch (e) {} }
+function regToggle(mini) { return `<button class="reg-tog" id="b-regmin" aria-expanded="${!mini}" aria-label="${mini ? 'Show region details' : 'Shrink the region box'}" title="${mini ? 'Show details' : 'Shrink'}">${mini ? '▴' : '▾'}</button>`; }
+function placeRegionCard() {
+  const card = $('#reg'), col = $('.mapcol'), svg = $('#map'); if (!card || !col || !svg || !S) return;
+  if (window.innerWidth <= 820) { col.classList.remove('reg-left'); card.style.maxHeight = ''; return; }
+  const cr = card.getBoundingClientRect(), mr = col.getBoundingClientRect(); const ctm = svg.getScreenCTM(); if (!cr.width || !ctm) return;
+  const w = cr.width, h = cr.height;
+  const R = { l:mr.right - 10 - w, r:mr.right - 10, t:mr.bottom - 10 - h, b:mr.bottom - 10 }, L = { l:mr.left + 10, r:mr.left + 10 + w, t:R.t, b:R.b };
+  const shown = sel || S.b.loc;
+  const boxes = E.REGIONS.map(r => { const p = $(`#g-reg path[data-id="${r.id}"]`); return p ? p.getBoundingClientRect() : null; });
+  const cost = B => E.REGIONS.reduce((c, r, i) => { const pr = boxes[i]; if (!pr) return c;
+    const ow = Math.max(0, Math.min(pr.right, B.r) - Math.max(pr.left, B.l)), oh = Math.max(0, Math.min(pr.bottom, B.b) - Math.max(pr.top, B.t));
+    const frac = ow * oh / Math.max(1, pr.width * pr.height);
+    const ax = ctm.a * r.a[0] + ctm.c * r.a[1] + ctm.e, ay = ctm.b * r.a[0] + ctm.d * r.a[1] + ctm.f; const inA = ax > B.l && ax < B.r && ay > B.t && ay < B.b ? 1 : 0;
+    const rs = S.regions[r.id]; const wgt = r.id === shown ? 8 : (r.id === S.b.loc || (S.b.tf && S.b.tf.loc === r.id)) ? 3 : (E.labIn(S, r.id) ? 2 : 0) + (rs.z > 0 && !rs.fallen ? 1.5 : 1);
+    return c + wgt * (.6 * inA + .4 * frac); }, 0);
+  const cR = cost(R), cL = cost(L);
+  if (regSide === 'right' && cL + .4 < cR) regSide = 'left'; else if (regSide === 'left' && cR + .4 < cL) regSide = 'right';
+  col.classList.toggle('reg-left', regSide === 'left');
+  if (regSide === 'left') { const d = $('#dir'); const db = d ? d.getBoundingClientRect().bottom : mr.top; card.style.maxHeight = Math.max(120, mr.bottom - 10 - db - 10) + 'px'; } else card.style.maxHeight = '';
+}
 function renderRegion() {
   const id = sel || S.b.loc; const rd = E.RD[id], rs = S.regions[id]; const st = E.status(rs);
+  const mini = regMin && window.innerWidth > 820; const regEl = $('#reg'); regEl.classList.toggle('min', mini);
+  if (mini) {
+    regEl.innerHTML = `<div class="reg-h"><div class="n">${esc(rd.name)}</div><span class="chips">${rs.stab > 0 ? '<span class="chip st-Stable">Stable</span>' : ''}<span class="chip st-${st}">${st}</span>${regToggle(true)}</span></div>`;
+    $('#b-regmin').onclick = () => { setRegMin(false); renderRegion(); };
+    regEl.querySelector('.reg-h .n').onclick = () => { setRegMin(false); renderRegion(); };
+    requestAnimationFrame(placeRegionCard); return;
+  }
   const lab = S.labs.find(l => l.region === id);
   const isHere = id === S.b.loc;
   let act = '';
@@ -301,13 +331,14 @@ function renderRegion() {
   else { const c = E.deployCost(S, id); const ok = E.canDeploy(S, id); act = `<button class="btn" id="b-deploy" ${ok === true ? '' : 'disabled'}>Deploy here</button><span class="note">${c.cp} CP · ${c.fuel} fuel · ${c.hops} ${c.hops === 1 ? 'hop' : 'hops'}${ok === true ? '' : '<br><span style="color:#ff8a7e">' + esc(ok) + '</span>'}</span>`; }
   const h = rs.h, z = rs.z, dd = rs.d;
   $('#reg').innerHTML = `
-    <div class="reg-h"><div><div class="n">${esc(rd.name)}</div><div class="note">${fmtPop(rd.pop)} people · ${rd.clim} · ${rd.base ? 'allied base' : 'no allied base'}</div></div><span class="chips">${rs.stab > 0 ? '<span class="chip st-Stable">Stable</span>' : ''}<span class="chip st-${st}">${st}</span></span></div>
+    <div class="reg-h"><div><div class="n">${esc(rd.name)}</div><div class="note">${fmtPop(rd.pop)} people · ${rd.clim} · ${rd.base ? 'allied base' : 'no allied base'}</div></div><span class="chips">${rs.stab > 0 ? '<span class="chip st-Stable">Stable</span>' : ''}<span class="chip st-${st}">${st}</span>${regToggle(false)}</span></div>
     <div class="popbar" title="Healthy / infected / dead"><i style="width:${h * 100}%;background:#6fa58a"></i><i style="width:${z * 100}%;background:#e2483b"></i><i style="width:${dd * 100}%;background:#3c4446"></i></div>
     <dl class="kv">
       <dt>Healthy</dt><dd>${fmtPop(h * rd.pop)} (${fmtPct(h)})</dd>
       <dt>Infected</dt><dd style="color:${z > 0 ? '#ff9a8e' : ''}">${fmtPop(z * rd.pop)} (${fmtPct(z)})</dd>
       <dt>Dead</dt><dd>${fmtPop(dd * rd.pop)}</dd>
       <dt>Civil order</dt><dd>${Math.round(rs.order)}/100</dd>
+      ${hnRow(rs, id)}
       <dt>Quarantine</dt><dd>${Math.round(rs.quar * 100)}%</dd>
       <dt>Containment</dt><dd>${Math.round(rs.contain * 100)}%</dd>
       ${rs.stab > 0 ? `<dt>Stability</dt><dd style="color:var(--stab)">Stabilized · ${E.presentIn(S, id) ? 'holding while you are here' : rs.stab + (rs.stab === 1 ? ' week' : ' weeks') + ' left'}</dd>` : ''}
@@ -325,6 +356,8 @@ function renderRegion() {
     <div class="reg-act">${act}</div>
     ${tfBlock(id, isHere)}
     ${E.CHOKE[id] && !rs.fallen ? `<div class="note" style="margin-top:8px">If ${esc(rd.name)} falls, the ${esc(E.CHOKE[id])} closes and every resupply shrinks ${Math.round(E.CHOKE_LOSS * 100)}%.</div>` : ''}`;
+  $('#b-regmin').onclick = () => { setRegMin(true); renderRegion(); };
+  requestAnimationFrame(placeRegionCard);
   const tb = $('#b-tf'); if (tb) tb.onclick = () => { const from = S.b.tf ? S.b.tf.loc : S.b.loc; const r = E.sendTF(S, id); toast(r.msg, !r.ok); flow(); if (r.ok) { SFX.play('convoy'); fxConvoy(from, id, '#8fd3ea'); } };
   const tm = $('#b-tfmove'); if (tm) tm.onclick = showTFPicker;
   const rb = $('#b-recall'); if (rb) rb.onclick = () => { const from = S.b.tf && S.b.tf.loc; const r = E.recallTF(S); toast(r.msg, !r.ok); flow(); if (r.ok) { SFX.play('convoy'); fxConvoy(from, S.b.loc, '#8fd3ea'); } };
@@ -358,6 +391,11 @@ function restoreChecklist(rs) {
   const Q = E.RESTORE_REQ; const row = (ok, t) => `<li class="${ok ? 'ok' : ''}"><span>${ok ? '✓' : '○'}</span>${t}</li>`;
   if (rs.fallen) return `<ul class="check"><li class="hd">To reclaim this fallen region</li>${row(rs.z < .1, `Infected under 10% (now ${fmtPct(rs.z)})`)}</ul>`;
   return `<ul class="check"><li class="hd">To restore this region</li>${row(rs.z < Q.z, `Infected under 0.5% (now ${fmtPct(rs.z)})`)}${row(rs.order >= Q.order, `Civil order 50+ (now ${Math.round(rs.order)})`)}${row((rs.vax || 0) >= Q.vax, `Cure coverage 50%+ (now ${Math.round((rs.vax || 0) * 100)}%)`)}</ul>`;
+}
+const HN_COL = { Strong:'#7fc28c', Holding:'#a9c98f', Strained:'#e8c547', Breaking:'#ff9a5e', Collapsed:'#ff6a5e' };
+function hnRow(rs, id) {
+  const v = rs.hn == null ? 1 : rs.hn; const lb = rs.fallen ? 'Collapsed' : E.hnLabel(v); const bol = rs.fallen ? 1 : E.hnBolster(S, id);
+  return `<dt title="The region's own army and police. They do most of the fighting.">Host forces</dt><dd style="color:${HN_COL[lb]}">${lb} · ${Math.round(v * 100)}%${bol > 1.001 ? ` <span style="color:var(--friend)" title="Your brigade makes them fight harder">+${Math.round((bol - 1) * 100)}% ECB</span>` : ''}</dd>`;
 }
 function stabChecklist(rs, id) {
   if (rs.fallen || rs.stab > 0) return '';
@@ -443,13 +481,13 @@ function cardHTML(id, opts) {
 }
 function renderHand() {
   const max = Math.max(E.cpMax(S), S.cp);
-  $('#pips').innerHTML = Array.from({ length:max }, (_, i) => `<span class="pip ${i < S.cp ? 'on' : ''}"></span>`).join('') + (S.burnBank ? '<span class="pip half" title="½ Command Point banked from burning"></span>' : '') + `<span class="mono" style="margin-left:6px;font-size:13px">${S.cp}${S.burnBank ? ' + ½' : ''}</span>`;
+  $('#pips').innerHTML = Array.from({ length:max }, (_, i) => `<span class="pip ${i < S.cp ? 'on' : ''}"></span>`).join('') + `<span class="mono" style="margin-left:6px;font-size:13px">${S.cp}</span>`;
   const nb = (S.deck.burned || []).length;
   $('#deckinfo').innerHTML = `Draw ${S.deck.draw.length} · Discard ${S.deck.discard.length}${nb ? ` · Burned ${nb}` : ''} · <button id="b-deck">Deck (${E.deckList(S).length})</button>`;
   $('#b-deck').onclick = () => showDeck(false);
   const hand = $('#hand');
-  hand.innerHTML = S.deck.hand.map((id, i) => { const cb = E.canBurn(S, i), v = half(E.burnValue(id)); const nm = esc(E.cardName(id));
-    return `<div class="slot">${cardHTML(id, { why:E.canPlay(S, i), attr:`data-i="${i}"` })}<button class="burn" data-b="${i}" ${cb === true ? '' : 'disabled'} title="${cb === true ? `Burn ${nm}: remove it from your deck for +${v} CP` : esc(cb)}" aria-label="Burn ${nm} for ${v} command points"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15.5c-3.3 0-5.5-2.2-5.5-5.1 0-2.7 2-4.3 2.9-6.6.4 1.3 1.1 2.1 1.9 2.4C7.4 4.1 7.9 1.9 9.7.5c-.1 2.6 1.6 3.8 2.8 5.6.8 1.2 1 2.4 1 3.6 0 3.3-2.3 5.8-5.5 5.8z" fill="currentColor"/><path d="M8 15c-1.6 0-2.7-1.1-2.7-2.6 0-1.4 1.1-2.2 1.6-3.3.3.7.8 1 1.3 1.1.1-1.2.6-2 1.4-2.6 0 1.3.8 2 1.4 2.9.3.5.4 1 .4 1.6C11.4 13.8 10 15 8 15z" fill="#ffd36b"/></svg><span class="bl">Burn? +${v} CP</span></button></div>`; }).join('');
+  hand.innerHTML = S.deck.hand.map((id, i) => { const cb = E.canBurn(S, i); const nm = esc(E.cardName(id));
+    return `<div class="slot">${cardHTML(id, { why:E.canPlay(S, i), attr:`data-i="${i}"` })}<button class="burn" data-b="${i}" ${cb === true ? '' : 'disabled'} title="${cb === true ? `Burn ${nm}: discard it now and draw a fresh card next week` : esc(cb)}" aria-label="Burn ${nm}: discard it and draw a fresh card next week"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15.5c-3.3 0-5.5-2.2-5.5-5.1 0-2.7 2-4.3 2.9-6.6.4 1.3 1.1 2.1 1.9 2.4C7.4 4.1 7.9 1.9 9.7.5c-.1 2.6 1.6 3.8 2.8 5.6.8 1.2 1 2.4 1 3.6 0 3.3-2.3 5.8-5.5 5.8z" fill="currentColor"/><path d="M8 15c-1.6 0-2.7-1.1-2.7-2.6 0-1.4 1.1-2.2 1.6-3.3.3.7.8 1 1.3 1.1.1-1.2.6-2 1.4-2.6 0 1.3.8 2 1.4 2.9.3.5.4 1 .4 1.6C11.4 13.8 10 15 8 15z" fill="#ffd36b"/></svg><span class="bl">Burn?</span></button></div>`; }).join('');
   for (const b of $$('.card', hand)) b.onclick = () => playIdx(+b.dataset.i, b);
   for (const b of $$('.burn', hand)) b.onclick = e => { e.stopPropagation(); burnIdx(+b.dataset.b, b); };
   const playable = S.deck.hand.some((_, i) => E.canPlay(S, i) === true);
@@ -521,7 +559,7 @@ function playIdx(i, elmt) {
   const go = () => { const r = E.playCard(S, i); toast(r.msg, !r.ok); flow(); if (r.ok) { const c = E.def(id); SFX.card(c.type, E.baseId(id)); fxCard(c.type, E.baseId(id), loc); TUT.ev('card'); } };
   if (elmt && !matchMedia('(prefers-reduced-motion: reduce)').matches) { elmt.classList.add('fly'); setTimeout(go, 220); } else go();
 }
-function selectRegion(id, focus) { sel = id === S.b.loc ? null : id; if (focus && window.innerWidth > 820) {} render(); if (window.innerWidth <= 820 && focus) { const r = $('#reg'); if (r) r.scrollIntoView({ behavior:'smooth', block:'center' }); } }
+function selectRegion(id, focus) { sel = id === S.b.loc ? null : id; if (regMin) setRegMin(false); if (focus && window.innerWidth > 820) {} render(); if (window.innerWidth <= 820 && focus) { const r = $('#reg'); if (r) r.scrollIntoView({ behavior:'smooth', block:'center' }); } }
 
 // ------------------------------------------------------------- sound button + map effects
 let crisisSnd = null, rewardSnd = null, fxQ = [], fxBusy = false;
@@ -599,7 +637,7 @@ const TUT = (function () {
     { id:'eng', when:noModal, target:'#b-eng', title:'Engineers (free)', text:'Your engineers can also do one week of building where the brigade is. Tap Engineers and pick a project.', until:'eng', next:'Skip' },
     { id:'end', when:noModal, target:'#b-end', title:'End the week', text:'When you are done, press End Week. The outbreak spreads, the labs research, and you get a report.', until:'end' },
     { id:'sitrep', when:() => !!$('#modal #b-cont'), target:'#modal .sit-items', place:'top', title:'Situation report', text:'This is what happened this week: good news in green, bad news in red. Press Continue to see it on the map.', until:'sitrep' },
-    { id:'region', when:noModal, target:'#reg', title:'Region card', text:'This card shows the region you picked. Pick another region on the map to move the brigade there or send a Task Force to guard it.', next:'Next' },
+    { id:'region', when:noModal, target:'#reg', title:'Region card', text:'This card shows the region you picked, including its Host forces: the local army and police who do most of the fighting. Your brigade makes them fight harder. Pick another region on the map to move the brigade there or send a Task Force.', next:'Next' },
     { id:'posture', when:noModal, target:'.posture', pre:() => { if (tab !== 'brigade') { tab = 'brigade'; renderSide(); } }, title:'Posture', text:'Posture is what your troops do on their own every week. Assault kills more, Hold stops the spread, Relief saves civilians.', next:'Next' },
     { id:'dir', when:noModal, target:'#dir', title:'HQ directive', text:'Higher command gives you goals with a deadline. Finish them for a reward and a new card.', next:'Next' },
     { id:'done', when:noModal, target:null, title:'You are ready', text:'Keep the labs safe until cure research reaches 100%. Finish week 2 on your own. How to Play and these tips are in the Menu any time.', next:'Got it' },
@@ -613,7 +651,7 @@ const TUT = (function () {
     { id:'upgrade', when:inDeck('upc'), target:'#modal .deckgrid', place:'top', title:'Upgrade a card', text:'Tap a card to make it cost 1 Command Point less for the rest of the run. Upgraded cards have a + after their name. Tap Back if you change your mind.' },
     { id:'stabhow', when:() => noModal() && !!S && S.turn >= 2 && !!$('#reg .check.stab'), target:'#reg .check.stab', title:'Stabilize a region', text:'Raise containment and quarantine here and keep the infection low. When all three are checked, the region holds on its own for a while, so you can move the brigade to the next trouble spot.' },
     { id:'stabbed', when:() => noModal() && !!S && E.REGIONS.some(r => S.regions[r.id].stab > 0), target:'.mapwrap', title:'Region stabilized', text:'The blue shield on the map marks a stable region. It keeps itself under control for about 6 weeks after you leave. Send the brigade where it is needed next, and come back before the time runs out.' },
-    { id:'burn', when:() => noModal() && !!S && S.turn >= 3 && !!$('#hand .burn'), target:'#hand .burn', title:'Burn a card', text:'Don\'t need a card? Tap its flame button twice. The card leaves your deck for good and you get back half its cost in Command Points.' },
+    { id:'burn', when:() => noModal() && !!S && S.turn >= 3 && !!$('#hand .burn'), target:'#hand .burn', title:'Burn a card', text:'Cards you don\'t play stay in your hand for next week. Don\'t want one? Tap its flame button twice. It goes to the discard pile, and you draw a fresh card in its place next week.' },
   ];
   const XKEY = 'ecb_tips';
   let step = -1, box = null, hl = null, shownStep = -1, curX = null;
@@ -807,9 +845,10 @@ function showMenu() {
 function howHTML() {
   return `<div class="howto"><ol>
     <li><b>Goal:</b> keep the world alive until the research labs finish a cure (the green bar at the top reaches 100%).</li>
-    <li><b>Each week</b> you draw 5 order cards and get Command Points (the amber dots). Click a card to play it. Most cards act on the region where your brigade is deployed.</li>
+    <li><b>Each week</b> your hand fills back up to 5 order cards and you get Command Points (the amber dots). Click a card to play it. Most cards act on the region where your brigade is deployed. Cards you don't play stay in your hand for next week.</li>
     <li><b>Crises</b> pop up most weeks. Pick one of the choices. Each choice shows what it costs.</li>
     <li><b>The map</b> shows every region's infection. Click a region to inspect it, then press <b>Deploy here</b> to move the brigade (costs Command Points and fuel).</li>
+    <li><b>Host-nation forces</b> (Host forces on the region card) are each region's own army and police. They do most of the fighting everywhere. Where the brigade is deployed they fight 45% harder, 25% harder with a Task Force, and they wear down more slowly. Heavy infection grinds them down, and a badly infected region whose forces collapse falls. Train and Equip and Partner Force Liaison rebuild them.</li>
     <li><b>Two free jobs every week</b> (buttons under the Command Points): <b>Air tasking</b> flies one aviation mission (scout with drones, a gun run, MEDEVAC, heavy lift, or stand down to rest the crews), and <b>Engineers</b> put a week of work into a Barrier Line, Fire Base, Field Hospital or Supply Depot where the brigade is. Neither costs Command Points.</li>
     <li><b>Posture</b> sets what the brigade does on its own every week: Assault kills more, Hold contains the spread and mans checkpoints (quarantine up), Relief saves civilians.</li>
     <li><b>Stabilize regions, then move on.</b> Containment builds up week after week where your troops work, and fades slowly after they leave. Get a region to containment 50%+, quarantine 35%+ and infected under 3% and it becomes <b>Stabilized</b> (blue shield on the map). A stable region holds on its own for about ${E.STAB.weeks} weeks after you leave, so you can take the brigade to the next trouble spot. The region card shows a checklist. The first time each region is stabilized you get Trust +3 and score points.</li>
@@ -824,7 +863,7 @@ function howHTML() {
     <li><b>Promotion Board:</b> every ${6} weeks you pick a permanent doctrine, such as stronger artillery, bigger resupply or extra cards each week.</li>
     <li><b>Upgrades:</b> when you get a new card, you can instead upgrade one you have. Upgraded cards cost 1 Command Point less.</li>
     <li><b>Seasons and chokepoints:</b> winter slows the infected in cold regions. Five regions hold strategic chokepoints (anchor icons): Panama, Suez, Malacca, Hormuz and the Bosporus. Each one that falls shrinks your resupply.</li>
-    <li><b>Burn cards</b> you don't want with the flame button on a card in your hand (tap it twice). The card leaves your deck for good and you get back half its cost in Command Points right away. Halves are saved until they add up to a whole point, so burning two 1-cost cards gives you 1 point. Your deck can't go below ${E.MIN_DECK} cards.</li>
+    <li><b>Burn cards</b> you don't want with the flame button on a card in your hand (tap it twice). The card goes to the discard pile. It stays in your deck and comes back later, but its slot fills with a fresh card next week. To take a card out of your deck for good, use Remove a card on a reward screen.</li>
     <li><b>Shortcuts:</b> keys 1–9 play cards or pick crisis choices, A opens air tasking, G opens engineers, E ends the week.</li>
     <li><b>Sound and tips:</b> the speaker button at the top turns sound on or off. The Menu can replay the tutorial tips.</li>
   </ol></div>`;
@@ -864,7 +903,7 @@ function showTitle() {
   if (titleOpts.cmd === 'hard' && !hardOK) titleOpts.cmd = 'mech';
   $('#root').innerHTML = `<div class="title"><div class="title-in">
     <div class="t-hero"><div><div class="t-logo">ECB<span>OUTBREAK</span></div>
-      <p class="t-tag">A plague is loose and the dead are walking. You command the <b>Expeditionary Combat Brigade</b>: 4,800 soldiers, a fleet of modular combat vehicles, eleven helicopters and a drone squadron. Draw orders, make hard calls, and hold the world together until the labs finish a cure.</p>
+      <p class="t-tag">A plague is loose and the dead are walking. You command the <b>Expeditionary Combat Brigade</b>: 4,800 soldiers, a fleet of modular combat vehicles, eleven helicopters and a drone squadron. You don't fight alone: every region's own army and police do most of the fighting. The ECB moves fast, reinforces them where they are breaking, and brings the specialists they lack. Draw orders, make hard calls, and hold the world together until the labs finish a cure.</p>
       <div class="t-go">${sv && !sv.over ? `<button class="btn" id="t-cont">Continue week ${sv.turn}</button>` : ''}<button class="btn ${sv && !sv.over ? 'ghost' : ''}" id="t-start">${sv && !sv.over ? 'New run' : 'Start run'}</button><button class="btn ghost" id="t-how">How to play</button><button class="btn ghost" id="t-film">Watch intro</button></div>
       <label class="t-chk" for="t-intro"><input type="checkbox" id="t-intro" ${introOn() ? 'checked' : ''}> Play the opening cinematic when a run starts</label></div>
       <div>${titleMap()}</div></div>
@@ -904,7 +943,7 @@ document.addEventListener('keydown', e => {
   else if ((e.key === 'a' || e.key === 'A') && !S.over) showAirTasking();
   else if ((e.key === 'g' || e.key === 'G') && !S.over) showEngineers();
 });
-let rt = null; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (S && $('#app')) renderMap(); }, 120); });
+let rt = null; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (S && $('#app')) { renderMap(); placeRegionCard(); } }, 120); });
 
 // ------------------------------------------------------------- boot (with live-update support)
 try { window.claude?.hot?.snapshot?.(() => ({ S, sel, tab, inGame: !!$('#app') })); } catch (e) {}

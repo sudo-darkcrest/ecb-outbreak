@@ -112,9 +112,9 @@ const ADJ = {}; REGIONS.forEach(r => ADJ[r.id] = []);
 LINKS.forEach(([a,b,t,w]) => { ADJ[a].push({ to:b, t, w }); ADJ[b].push({ to:a, t, w }); });
 
 const DIFFS = {
-  recruit:   { name:'Recruit',   inf:.88, res:1.2, sup:1.25, mult:.8,  pz:1 },
-  veteran:   { name:'Veteran',   inf:1.0,   res:.9,  sup:1,    mult:1,   pz:1 },
-  nightmare: { name:'Nightmare', inf:1.05, res:.88, sup:.85,   mult:1.5, pz:2 },
+  recruit:   { name:'Recruit',   inf:.88, res:1.2, sup:1.25, mult:.8,  pz:1, hn:1.1 },
+  veteran:   { name:'Veteran',   inf:1.0,   res:.9,  sup:1,    mult:1,   pz:1, hn:1 },
+  nightmare: { name:'Nightmare', inf:1.05, res:.88, sup:.85,   mult:1.5, pz:2, hn:.92 },
 };
 
 const COMMANDERS = [
@@ -253,12 +253,23 @@ function contain(s, v, rid) { const rs = s.regions[rid || s.b.loc]; rs.contain =
 // Containment now lasts: it builds up week after week and fades slowly, faster once your troops leave.
 // A region that reaches the STAB thresholds is Stabilized and holds on its own for a while.
 const STAB = { contain:.5, quar:.35, z:.03, weeks:6, lose:.06, floor:.4 };
+// Host-nation forces: every region's own army and police. They do most of the fighting; the ECB bolsters them.
+const hnBase = (s, r) => clamp((.6 + .4 * r.wealth) * (r.base ? 1.05 : 1) * (DIFFS[s.diff].hn || 1), .3, 1);
+function hnBolster(s, id) {
+  const rs = s.regions[id]; let f = 1;
+  if (s.b.loc === id) f += .45 + (hasD(s, 'hearts') ? .1 : 0);
+  if (s.b.tf && s.b.tf.loc === id) f += .25;
+  if (rs.hnT > 0) f += .25;
+  return f;
+}
+const hnLabel = v => v >= .75 ? 'Strong' : v >= .5 ? 'Holding' : v >= .25 ? 'Strained' : v >= .08 ? 'Breaking' : 'Collapsed';
 const presentIn = (s, id) => s.b.loc === id || !!(s.b.tf && s.b.tf.loc === id);
 const canStabilize = rs => !rs.fallen && rs.contain >= STAB.contain && rs.quar >= STAB.quar && rs.z < STAB.z;
 function settleControl(s, rep) {
   rep.stab = [];
   for (const r of REGIONS) { const rs = s.regions[r.id]; const here = presentIn(s, r.id); rs.stab = rs.stab || 0;
-    if (rs.fallen) { if (rs.stab) { rs.stab = 0; rep.items.push({ k:'bad', t:`${r.name} fell. It is no longer stable.` }); } rs.contain *= .5; continue; }
+    if (rs.hnT > 0) rs.hnT--;
+    if (rs.fallen) { if (rs.stab) { rs.stab = 0; rep.items.push({ k:'bad', t:`${r.name} fell. It is no longer stable.` }); } rs.contain *= .5; rs.hn = Math.min(rs.hn || 0, .05); continue; }
     if (rs.stab > 0 && rs.z >= STAB.lose) { rs.stab = 0; rep.items.push({ k:'bad', t:`${r.name}: the infection broke through. The region is no longer stable.` }); }
     else if (!rs.stab && canStabilize(rs)) {
       rs.stab = STAB.weeks; rep.stab.push(r.id); s.stats.stabilized = (s.stats.stabilized || 0) + 1;
@@ -428,8 +439,11 @@ card({ id:'martial_law', name:'Martial Law', type:'CIVIL', cost:1, unit:'Militar
   play:s => { T(s).order = Math.min(100, T(s).order + 20); T(s).quar = clamp(T(s).quar + .2, 0, .95); add(s,'trust',-2); add(s,'morale',-2); return 'Martial law declared.'; } });
 card({ id:'psa', name:'Emergency Broadcast', type:'CIVIL', cost:1, unit:'Signal · Psychological operations', text:s => `Tell people to stay home and how to spot the bitten. Containment +15%, Order +5.`,
   play:s => { contain(s,.15); T(s).order = Math.min(100, T(s).order + 5); return 'Emergency broadcast reached the population.'; } });
-card({ id:'partner', name:'Partner Force Liaison', type:'CIVIL', cost:1, unit:'Brigade HQ liaison officers', text:s => `Coordinate local police and army. Order +15. Kill <b>${pc(kp(s,.05,1,'CIVIL',false))}</b> (about ${est(s,kp(s,.05,1,'CIVIL',false))}).`,
-  play:s => { T(s).order = Math.min(100, T(s).order + 15); const k = doKill(s, kp(s,.05,1,'CIVIL',false)); return `Partner forces engaged, destroying ${M(k)} infected.`; } });
+card({ id:'partner', name:'Partner Force Liaison', type:'CIVIL', cost:1, unit:'Brigade HQ liaison officers', text:s => `Coordinate local police and army. Host forces +8% strength, Order +15. Kill <b>${pc(kp(s,.05,1,'CIVIL',false))}</b> (about ${est(s,kp(s,.05,1,'CIVIL',false))}).`,
+  play:s => { const t = T(s); t.order = Math.min(100, t.order + 15); t.hn = Math.min(t.hnMax * 1.15, t.hn + .08); const k = doKill(s, kp(s,.05,1,'CIVIL',false)); return `Partner forces engaged, destroying ${M(k)} infected.`; } });
+card({ id:'train_hn', name:'Train and Equip', type:'CIVIL', cost:1, res:{ supply:6, ammo:4 }, rarity:'uncommon', unit:'Brigade HQ · Maintenance · Military Police',
+  text:s => `Arm and retrain ${TD(s).name}'s own army and police. Host forces +20% strength (now ${Math.round(T(s).hn * 100)}%) and they fight 25% harder for 3 weeks.`,
+  play:s => { const t = T(s); t.hn = Math.min(t.hnMax * 1.15, t.hn + .2); t.hnT = Math.max(t.hnT || 0, 3); add(s,'trust',1); return `Host-nation units in ${TD(s).name} rearmed and retrained.`; } });
 card({ id:'borders', name:'Close the Borders', type:'CIVIL', cost:2, rarity:'uncommon', unit:'Brigade HQ', text:s => `Seal crossings. Quarantine +30% here and +15% in every neighboring region.`,
   play:s => { T(s).quar = clamp(T(s).quar + .3, 0, .95); for (const n of neighbors(s.b.loc)) s.regions[n].quar = clamp(s.regions[n].quar + .15, 0, .95); return 'Borders closed around the theater.'; } });
 card({ id:'refugee_camp', name:'Refugee Processing Center', type:'CIVIL', cost:1, res:{ supply:8 }, unit:'Brigade Support', text:s => `Screen and shelter refugees. Saves about <b>${M(Math.max(0,T(s).h-T(s).safe)*clamp(.02*scale(s.b.loc)*(s.cmd==='civ'?1.3:1),0,.5)*TD(s).pop)}</b>. Exposure +5.`,
@@ -1073,8 +1087,8 @@ function takeDoctrine(s, id) {
 }
 
 // ---------------------------------------------------------------- burning cards
-// Burn a card from your hand: it leaves the deck for good and returns half its cost as Command Points.
-// Half points are banked until they add up to a whole point.
+// Burn a card from your hand: it goes to the discard pile (it stays in your deck) so its slot
+// fills with a fresh card next week. Cards you don't play or burn stay in your hand.
 const MIN_DECK = 8;
 const burnValue = id => (def(id) ? costOf(id) : 0) / 2;
 function canBurn(s, idx) {
@@ -1082,22 +1096,16 @@ function canBurn(s, idx) {
   if (s.crisis) return 'Resolve the crisis first';
   if (s.cureChoice) return 'Decide what to do with the cure first';
   if (s.deck.hand[idx] == null) return 'No card there';
-  if (deckList(s).length <= MIN_DECK) return `Your deck can't go below ${MIN_DECK} cards`;
   return true;
 }
 function burnCard(s, idx) {
   const ok = canBurn(s, idx); if (ok !== true) return { ok:false, msg:ok };
-  const id = s.deck.hand.splice(idx, 1)[0]; const v = burnValue(id);
-  (s.deck.burned = s.deck.burned || []).push(id);
-  s.burnBank = (s.burnBank || 0) + v;
-  const gain = Math.floor(s.burnBank + 1e-9); s.burnBank = Math.round((s.burnBank - gain) * 2) / 2; s.cp += gain;
+  const id = s.deck.hand.splice(idx, 1)[0];
+  s.deck.discard.push(id);
   s.stats.burned = (s.stats.burned || 0) + 1;
-  const name = cardName(id);
-  const msg = gain ? `Burned ${name}. +${gain} Command Point${gain > 1 ? 's' : ''}${s.burnBank ? ', ½ banked' : ''}.`
-    : v ? `Burned ${name}. ½ Command Point banked. Burn another card to make a whole point.`
-    : `Burned ${name}. Zero-cost cards return no Command Points.`;
+  const msg = `Burned ${cardName(id)}. It goes to the discard pile, and you draw a fresh card in its place next week.`;
   s.log.push(msg);
-  return { ok:true, msg, gain };
+  return { ok:true, msg, gain:0 };
 }
 
 // ---------------------------------------------------------------- new game
@@ -1114,7 +1122,7 @@ function newGame(opts) {
   s.path = { name: pick(s,names) + ' ' + pick(s,kinds), code: 'HX-' + rint(s,2,9) + 'ABCDEFGHJK'[rint(s,0,9)],
     inf: (1.30 + rnd(s) * .16) * D.inf, aggr: .85 + rnd(s) * .35, resil: .9 + rnd(s) * .25, coldTol: .6 + rnd(s) * .3, spread: .9 + rnd(s) * .25, traits:[] };
   s.regions = {};
-  for (const r of REGIONS) s.regions[r.id] = { h:1, z:0, d:0, safe:0, order:35 + 60 * r.wealth, quar:0, fallen:false, contain:0, stab:0, sz:0, seen:false, vax:0, restored:false };
+  for (const r of REGIONS) s.regions[r.id] = { h:1, z:0, d:0, safe:0, order:35 + 60 * r.wealth, quar:0, fallen:false, contain:0, stab:0, hn:hnBase(s, r), hnMax:hnBase(s, r), hnT:0, sz:0, seen:false, vax:0, restored:false };
   s.pz = pick(s, PZ_CANDIDATES);
   const seedRegion = (id, z) => { const r = s.regions[id]; r.z = z; r.h -= z; r.seen = true; };
   seedRegion(s.pz, .0015);
@@ -1148,17 +1156,19 @@ function migrate(s) {
   if (!s.nextBoard) s.nextBoard = Math.max(BOARD_EVERY, Math.ceil(s.turn / BOARD_EVERY) * BOARD_EVERY);
   if (s.pendingDoctrine === undefined) s.pendingDoctrine = null;
   if (!s.deck.burned) s.deck.burned = [];
-  if (s.burnBank == null) s.burnBank = 0;
+  s.burnBank = 0;
   if (s.b.air == null) { s.b.air = 100; s.b.ato = null; s.b.eng = null; s.b.engUsed = false; }
-  for (const r of REGIONS) { const rs = s.regions[r.id]; if (rs && rs.stab == null) rs.stab = 0; }
+  for (const r of REGIONS) { const rs = s.regions[r.id]; if (!rs) continue; if (rs.stab == null) rs.stab = 0;
+    if (rs.hn == null) { rs.hnMax = hnBase(s, r); rs.hn = rs.fallen ? .05 : rs.hnMax * Math.max(.2, 1 - rs.z * 1.5); rs.hnT = 0; } }
   return s;
 }
+const handSize = s => hasD(s, 'drill') ? 6 : 5;
 function startTurn(s) {
   const b = s.b;
   s.cp = Math.max(0, cpMax(s) + b.cpNext); b.cpNext = 0;
   b.moved = false; b.freeMove = false; b.boost = 0; b.expoShield = 0; b.tfMoved = false; b.ato = null; b.engUsed = false;
   s.log = [];
-  draw(s, hasD(s, 'drill') ? 6 : 5);
+  draw(s, Math.max(0, handSize(s) - s.deck.hand.length));
   if (s.turn >= (s.nextBoard || 99) && !s.pendingDoctrine && Object.keys(DOCTRINES).some(id => !hasD(s, id))) { s.pendingDoctrine = { options:boardOptions(s), week:s.turn }; s.nextBoard = s.turn + BOARD_EVERY; }
   if (!s.directive && s.turn >= s.nextDirective) s.directive = makeDirective(s);
   if (s.turn > 1) s.crisis = chooseCrisis(s);
@@ -1226,6 +1236,7 @@ function endTurn(s) {
   // 2. world simulation
   s.travel = s.turn > 2 ? Math.max(.15, 1 - .035 * (s.turn - 2) - .6 * fallenCount(s) / REGIONS.length) : 1;
   const z0 = {}; for (const r of REGIONS) z0[r.id] = s.regions[r.id].z;
+  const hnK = {};
   for (const r of REGIONS) {
     const rs = s.regions[r.id];
     // quarantine drift (borders close as the world wakes up)
@@ -1237,14 +1248,18 @@ function endTurn(s) {
       vaccinate(s, rate, r.id);
       if (rs.z > 0) { const c = rs.z * (.04 + .12 * rs.vax); rs.z -= c; rs.h += c; s.stats.cured = (s.stats.cured || 0) + c * r.pop; }
     }
-    if (rs.z <= 0) { if (rs.z < 0) rs.z = 0; rs.order = Math.min(35 + 60 * r.wealth + 5 * rs.sz + (RP ? 10 * rs.vax : 0), rs.order + 3 + 2 * r.wealth + (RP ? 4 * rs.vax : 0)); continue; }
+    if (rs.z <= 0) { if (rs.z < 0) rs.z = 0; if (!rs.fallen && rs.hn < rs.hnMax) rs.hn = Math.min(rs.hnMax, rs.hn + (presentIn(s, r.id) ? .06 : .03)); rs.order = Math.min(35 + 60 * r.wealth + 5 * rs.sz + (RP ? 10 * rs.vax : 0), rs.order + 3 + 2 * r.wealth + (RP ? 4 * rs.vax : 0)); continue; }
     const ord = rs.order / 100;
     const clim = r.clim === 'cold' ? P.coldTol : r.clim === 'hot' ? 1.05 : 1;
     const exposed = Math.max(0, rs.h - rs.safe) * (1 - (rs.vax || 0));
     const beta = P.inf * r.dens * clim * seasonMult(s, r.id) * (1 - .35 * ord) * (1 - rs.contain) * (1 - .12 * rs.sz);
     const newInf = Math.min(exposed * .85, beta * rs.z * exposed);
     const eaten = Math.min(Math.max(0, exposed - newInf), newInf * .12 * P.aggr);
-    const kill = rs.z * (.07 + .5 * ord * (.6 + .4 * r.wealth) + (RP ? .05 + .3 * rs.vax : 0)) / P.resil;
+    const hnTerm = .5 * ord * rs.hn * hnBolster(s, r.id);
+    const kill = rs.z * (.07 + hnTerm + (RP ? .05 + .3 * rs.vax : 0)) / P.resil;
+    hnK[r.id] = rs.z * hnTerm / P.resil * r.pop;
+    rs.hn = Math.max(0, rs.hn - rs.hn * Math.min(rs.z, .6) * .6 * (presentIn(s, r.id) ? .5 : 1));
+    if (rs.z < .01 && !rs.fallen && rs.hn < rs.hnMax) rs.hn = Math.min(rs.hnMax, rs.hn + (presentIn(s, r.id) ? .03 : .015));
     const decay = rs.z * .03;
     rs.z = rs.z + newInf - kill - decay; rs.h -= newInf + eaten; rs.d += kill + decay + eaten;
     if (rs.h < 0) rs.h = 0; rs.safe = Math.min(rs.safe, rs.h);
@@ -1258,6 +1273,11 @@ function endTurn(s) {
     rs.order = clamp(rs.order, 0, target);
     if (rs.fallen) rs.order = 0;
   }
+  // what the host nations did this week
+  { const k1 = hnK[b.loc] || 0; if (k1 > 1e-3) rep.items.push({ k:'info', t:`Host-nation forces in ${thd.name}, backed by the brigade, destroyed ${M(k1)} infected.` });
+    if (tf && tf.loc !== b.loc && (hnK[tf.loc] || 0) > 1e-3) rep.items.push({ k:'info', t:`Host-nation forces in ${RD[tf.loc].name}, backed by Task Force ${UNITS[tf.bn].name}, destroyed ${M(hnK[tf.loc])} infected.` });
+    const tot = Object.values(hnK).reduce((a, v) => a + v, 0); rep.hnKills = tot; s.stats.hnKills = (s.stats.hnKills || 0) + tot;
+    if (tot > 1e-3) rep.items.push({ k:'info', t:`Host-nation forces around the world destroyed ${M(tot)} infected this week.` }); }
   // inter-region spread
   for (const r of REGIONS) {
     const src = s.regions[r.id]; const z = z0[r.id]; if (z <= 0) continue;
@@ -1289,7 +1309,7 @@ function endTurn(s) {
   // falls and reclaims
   for (const r of REGIONS) {
     const rs = s.regions[r.id];
-    if (!rs.fallen && ((rs.z > .3 && rs.order < 12) || (rs.z > rs.h && rs.z > .05))) {
+    if (!rs.fallen && ((rs.z > .3 && rs.order < 12) || (rs.z > rs.h && rs.z > .05) || (rs.hn < .08 && rs.z > .12))) {
       rs.fallen = true; rs.order = 0; s.stats.fallen++; rep.fell.push(r.id);
       rep.items.push({ k:'bad', t:`${r.name} has FALLEN.` }); add(s,'morale', RP ? -.5 : -1.5);
       for (const l of s.labs) if (l.active && l.region === r.id) { l.active = false; rep.items.push({ k:'bad', t:`${l.name} was overrun. The lab is lost.` }); }
@@ -1298,7 +1318,7 @@ function endTurn(s) {
       if (CHOKE[r.id]) rep.items.push({ k:'bad', t:`The ${CHOKE[r.id]} is lost. Every resupply shrinks by ${Math.round(CHOKE_LOSS * 100)}%.` });
       if (b.tf && b.tf.loc === r.id) { cas(s, .1, [b.tf.bn]); rep.items.push({ k:'bad', t:`Task Force ${UNITS[b.tf.bn].name} was caught in the collapse of ${r.name}.` }); }
     } else if (rs.fallen && (RP ? rs.z < .1 : rs.z < .06 && rs.h > .1)) {
-      rs.fallen = false; rs.order = Math.max(rs.order, RP ? 20 : 15); rep.items.push({ k:'good', t:`${r.name} has been reclaimed.` }); if (RP) { add(s,'morale',4); add(s,'trust',3); }
+      rs.fallen = false; rs.order = Math.max(rs.order, RP ? 20 : 15); rs.hn = Math.max(rs.hn || 0, .25); rep.items.push({ k:'good', t:`${r.name} has been reclaimed.` }); if (RP) { add(s,'morale',4); add(s,'trust',3); }
     }
     if (RP) {
       if (!rs.restored && restoreReady(rs)) { rs.restored = true; s.stats.restored++; rep.items.push({ k:'good', t:`${r.name} has been RESTORED.` }); add(s,'morale',1); add(s,'trust',1); }
@@ -1362,7 +1382,7 @@ function endTurn(s) {
   if (s.directive) checkDirective(s, rep, s.turn >= s.directive.deadline);
 
   // 6. cleanup
-  s.deck.discard.push(...s.deck.hand); s.deck.hand = [];
+  // unplayed cards stay in hand for next week
   rep.after = { h:survivors(s), z:infected(s), research:s.research, pers:personnel(s) };
   rep.restoredAfter = restoredCount(s); rep.vaxAfter = avgVax(s);
   s.turn++;
@@ -1413,7 +1433,7 @@ function score(s) {
 
 return { REGIONS, RD, LINKS, ADJ, UNITS, ENABLERS, NOMINAL, NOMINAL_TOTAL, START_POP, DIFFS, COMMANDERS, CMD, CARDS, EVENTS, POSTURES, MUTATIONS,
   RESTORE_WEEKS, RESTORE_REQ, restoreReady, restoredCount, avgVax, beginRestoration, endAtCure,
-  STAB, canStabilize, presentIn, MIN_DECK, burnValue, canBurn, burnCard, SORTIES, WORKS, canSortie, flySortie, canBuild, buildWork, worksIn, engCrew, airWorst,
+  STAB, canStabilize, presentIn, hnBolster, hnLabel, hnBase, MIN_DECK, burnValue, canBurn, burnCard, SORTIES, WORKS, canSortie, flySortie, canBuild, buildWork, worksIn, engCrew, airWorst,
   DOCTRINES, RANKS, TRAITS, CHOKE, CHOKE_LOSS, HEMI, BNS, TF_RANGE, hasD, takeDoctrine, mainBns, allMan, rankIdx, vetOf, vetKillOne, vetCas,
   tfCandidate, tfCost, canSendTF, sendTF, recallCost, canRecallTF, recallTF, monthOf, seasonOf, seasonMult, chokesLost, caps,
   baseId, isUp, def, costOf, canUpgrade, cardName, migrate,

@@ -47,6 +47,9 @@ function runGreedy(seed, diff='veteran', cmd='mech', verbose=false, restore=fals
         if (c.id==='rally' && b.morale > 75) continue;
         const r = ECB.playCard(s, i); if (r.ok) { progress = true; break; } }
     }
+    // burn what we won't use: keep cards that only lacked Command Points (up to 2), burn the rest
+    { let kept = 0; for (let i = s.deck.hand.length - 1; i >= 0; i--) { const why = ECB.canPlay(s, i);
+        if (why === 'Not enough Command Points' && kept < 2) { kept++; continue; } ECB.burnCard(s, i); } }
     const rep = ECB.endTurn(s);
     if (verbose && rep && s.phase === 'restore') console.log(`R W${rep.turn} loc=${b.loc} restored=${ECB.restoredCount(s)} vax=${(ECB.avgVax(s)*100).toFixed(0)}% fallen=${ECB.fallenCount(s)} inf=${ECB.M(ECB.infected(s))} mor=${b.morale.toFixed(0)} tr=${b.trust.toFixed(0)} thZ=${(s.regions[b.loc].z*100).toFixed(1)} thVax=${((s.regions[b.loc].vax||0)*100).toFixed(0)}`);
     else if (verbose && rep) console.log(`W${rep.turn} loc=${b.loc} surv=${(ECB.survivors(s)/ECB.START_POP*100).toFixed(1)}% res=${s.research.toFixed(1)} labs=${ECB.activeLabs(s).length} fallen=${ECB.fallenCount(s)} pers=${ECB.personnel(s)} mor=${b.morale.toFixed(0)} exp=${b.exposure.toFixed(0)} tr=${b.trust.toFixed(0)} sup=${b.supply} am=${b.ammo} fu=${b.fuel} thZ=${(s.regions[b.loc].z*100).toFixed(2)}`);

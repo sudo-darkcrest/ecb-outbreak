@@ -445,3 +445,14 @@ b{color:#fff;font-weight:700}
 .chips{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 .sw.sh{background:var(--stab);clip-path:polygon(50% 0,100% 18%,100% 58%,50% 100%,0 58%,0 18%);display:inline-block;width:9px;height:10px;vertical-align:-1px}
 #map .stabmk{pointer-events:none}
+
+/* region box: shrink button and left/right docking */
+.reg-tog{flex:none;width:26px;height:24px;border-radius:5px;border:1px solid var(--line2);background:transparent;color:var(--dim);font-size:12px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.reg-tog:hover{color:var(--ink);border-color:var(--dim)}
+.reg-tog:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+#reg.min{padding:8px 10px 8px 12px}
+#reg.min .reg-h{align-items:center}
+#reg.min .reg-h .n{font-size:14px;cursor:pointer}
+.mapcol.reg-left .ov-region{right:auto;left:10px}
+.mapcol.reg-left .ov-legend{left:auto;right:10px}
+@media (max-width:820px){ .reg-tog{display:none} }

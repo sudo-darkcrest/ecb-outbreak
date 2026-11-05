@@ -116,7 +116,7 @@ const PANELS = [
 const TURNS = ['This is what we are fighting to prevent.', 'None of this has happened yet.', 'This future is not written yet.', 'This is the worst case. We do not have to live it.'];
 const READY = ['ONE FORCE IS READY.', 'ONE FORCE CAN STILL MOVE.', 'ONE BRIGADE IS ALREADY LOADED.'];
 const ROLL = [['convoy', 'LOGISTICS', 'airbridge', 'AIR'], ['mech_sweep', 'COMBAT', 'apache', 'AIR'], ['redeploy', 'AIR', 'linebacker', 'COMBAT'], ['qrf', 'COMBAT', 'air_assault', 'AIR']];
-const ORDERS = ['Orders: stop the projection. Hold the line until the labs find a cure.', 'Orders: get there first. Keep the labs alive until the cure is ready.', 'Orders: buy the scientists time, whatever it costs.', 'Orders: contain it, protect the labs, and do not let the map turn red.'];
+const ORDERS = ['Orders: stop the projection. Hold the line until the labs find a cure.', 'Orders: get there first. Keep the labs alive until the cure is ready.', 'Orders: buy the scientists time, whatever it costs.', 'Orders: contain it, protect the labs, and do not let the map turn red.', 'Orders: reinforce the local forces wherever they break. Keep the labs alive until the cure is ready.'];
 // pick one version of every beat from the run's seed, and never open the same way twice in a row
 function scenario(S, peek) {
   let h = 2166136261 >>> 0; const str = String(S.seed) + ':film'; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
