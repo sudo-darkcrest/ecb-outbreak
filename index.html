@@ -2229,6 +2229,23 @@ ${wheel(17.4, 3.4, 1.5, { lugs: 4 })}${wheel(20.2, 3.4, 1.5, { lugs: 4 })}${whee
 <g ${F('d3')}><rect x="-10.4" y="-.8" width="1" height="5.4" rx=".4"/><rect x="9.4" y="-.8" width="1" height="5.4" rx=".4"/></g>
 <circle cx="-35.6" cy=".2" r=".5" ${F('rl', .9)}/><circle cx="35.6" cy=".2" r=".5" ${A(.9)}/>
 </g>
+<g id="s-hawkwreck">
+<g transform="translate(-30 0) rotate(-5)"><path d="M3.4 -1 L-15.6 -2.2 L-16 -4.2 L3.8 -4.8 L5.4 -3.6 L3.6 -3 L5 -2.2 Z"/><path d="M3.8 -4.8 L-16 -4.2" ${AS(.35, .45)}/>
+<path d="M-14.2 -2.6 L-18.2 -11.6 L-15.6 -11.8 L-12 -3.2 Z"/><path d="M-18.2 -11.6 L-15.6 -11.8" ${AS(.35, .5)}/><path d="M-16.6 -9 L-21 -5.4 M-16.6 -9 L-13.6 -13.4" ${CS(.6)}/><circle cx="-16.6" cy="-9" r=".8" ${F('d4')}/><rect x="-17.4" y="-1.8" width="6.4" height=".9" ${F('d2')}/></g>
+<g transform="translate(2 -1.4) rotate(6)">
+<path d="M-13 -12.4 Q-9 -15.4 0 -15.4 L6 -14.8 Q10.4 -14.2 12.4 -12.4 Z"/><path d="M-10.4 -14.2 L-6 -14.6 L-6 -13 L-10.6 -12.8 Z" ${F('d0')}/>
+<path d="M-14.6 -12.6 L11 -12.6 Q16 -12 18.4 -9 L21.4 -5.2 Q22.4 -2.4 20 -.8 L-8 -.8 Q-12 -1 -13.6 -3.6 L-15.2 -6 L-17 -7.4 L-15.4 -8.8 L-17.2 -10.6 Z"/>
+<path d="M-13.6 -11.8 L10.6 -11.8 Q14.6 -11.2 17 -8.6 L19.4 -5.2 L19.6 -1.6 L-8 -1.6 Q-11.6 -1.8 -12.8 -3.8 L-14.2 -6 Z" ${F('d2')}/>
+<path d="M11.2 -12 Q15.6 -11.4 18 -8.8 L20.6 -5.6 L14.6 -5.8 L11 -8.4 Z" ${A(.16)}/><path d="M12.4 -11.4 L15.8 -7.6 M14.6 -10.6 L13 -6.6 M16.8 -9.6 L18.4 -6" ${S('d0', .35)}/>
+<rect x="-6.6" y="-11.2" width="11.2" height="8.8" ${F('d0')}/><rect x="-6.6" y="-11.2" width="11.2" height="8.8" ${S('d4', .3)}/><path d="M-5.6 -10.4 L-2 -6.4 M1 -10.8 L3.6 -7" ${S('d3', .3)}/>
+<rect x="6.6" y="-11.4" width="3.6" height="3.8" ${A(.12)}/><path d="M-14.6 -12.6 L11 -12.6 Q16 -12 18.4 -9" ${AS(.35, .45)}/>
+<path d="M-17 -7.4 L-15.4 -8.8 L-17.2 -10.6" ${AS(.3, .5)}/>
+<rect x="-.5" y="-17.2" width="1.6" height="3.6"/><rect x="-1.8" y="-18.8" width="4" height="1.6" ${F('d2')}/>
+<path d="M0 -18 Q-12 -19.4 -22.4 3" ${CS(1.1)}/><path d="M1.4 -18 Q12.6 -19.8 23 -2" ${CS(1.1)}/><path d="M-22.4 3 L-23.6 4" ${CS(.7)}/>
+<path d="M9.4 -1 L10.6 1.2 L7.8 1.6 Z M-4 -.8 L-3 1.4 L-6 1.2 Z"/></g>
+<path d="M27 -.6 L43.6 -2.2 L43.8 -1.1 L27.2 .4 Z"/><path d="M27 -.6 L43.6 -2.2" ${AS(.3, .4)}/>
+<g ${F('d3')}><path d="M-8 0 l1.8 -1.6 l2 .6 l-.4 1 Z"/><path d="M14 0 l1.2 -1.2 l2.4 .4 l-.6 .8 Z"/><path d="M33 0 l1 -1 l1.6 .6 l-.4 .4 Z"/><path d="M-44 0 l1.4 -1.4 l1.8 1 Z"/></g>
+</g>
 <g id="s-quad">
 <rect x="-3.4" y="-1.8" width="6.8" height="3.4" rx="1.2"/><rect x="-2.6" y="-1.2" width="5.2" height="1" rx=".4" ${F('d3')}/>
 <path d="M-9.4 -3 L9.4 3 M-9.4 3 L9.4 -3" stroke="currentColor" stroke-width="1"/>
@@ -2620,6 +2637,10 @@ const SC = {
   relapse: [['bg','ruins'],['g',100,56,52,'red'],['horde',70,158,72,7,1.4],['u','soldier',20,72,1.45],['u','kneel',42,72,1.45]],
   rotation: [['bg','field'],['u','plane',92,44,1.7],['u','soldier',16,72,1.35],['u','soldier',32,72,1.35],['u','soldier',48,72,1.35],['u','soldier',134,72,1.35,{f:1}],['u','soldier',150,72,1.35,{f:1}]],
   tribunal: [['bg','room'],['rect',30,56,100,4],['u','officer',50,56,1.45],['u','officer',80,56,1.45],['u','officer',110,56,1.45,{f:1}],['u','shield',142,40,1.1]],
+  // ===== cinematic openers
+  cine_flight: [['stars',3],['bg','field'],['g',136,60,28,'red'],['u','plane',72,66,1.75],['u','pickup',144,73,.85],['g',146,61,6,'red'],['u','soldier',126,72,1.05,{f:1}]],
+  cine_lab: [['stars',5],['bg','farcity'],['g',80,56,52,'red'],['u','lab',80,72,1.65],['u','zombie',38,72,1.2,{o:.75}],['u','zombie',124,72,1.1,{o:.55}]],
+  cine_camp: [['stars',6],['g',132,18,14,'moon'],['bg','field'],['g',72,66,26,'fire'],['u','tent',26,72,1.3],['u','tent',104,72,1.5],['u','tent',146,72,1.2],['u','flame',70,72,.9],['crowd',46,88,72,3,1.05],['u','zombie',126,72,1.25,{o:.6}]],
   // ===== MCV-L scouts
   scout_screen: [['bg','hills'],['beam',53,31,8,84,11],['u','ml',48,72,1.3],['u','reticle',126,52,1.05],['horde',112,152,72,3,1.15]],
   lost_patrol: [['stars',4],['bg','ruins'],['g',72,58,30,'red'],['u','ml',70,72,1.25,{r:4}],['waves',72,30,3],['horde',4,30,72,3,1.2,1],['horde',112,156,72,4,1.3]],
@@ -2639,7 +2660,7 @@ const SC = {
   militia: [['bg','city'],['u','pickup',124,73,1.5],['u','soldier',30,72,1.45,{c:'#0a0d0e'}],['u','civ',50,72,1.5],['u','soldier',72,72,1.45,{c:'#0a0d0e'}]],
   nuke: [['bg','farcity'],['g',100,40,70,'fire'],['u','mush',100,70,1.45,{c:'#ffb347',o:.95}],['g',100,34,32,'fire'],['u','soldier',22,72,1.5],['u','soldier',42,72,1.5]],
   horde: [['bg','ruins'],['g',80,58,64,'red'],['horde',10,156,66,12,1.0],['horde',2,158,72,10,1.5]],
-  helo_down: [['bg','ruins'],['g',72,62,42,'fire'],['u','hawk',74,66,1.45,{r:16}],['u','flame',66,64,1.5],['smoke',76,56,1.3],['horde',124,156,72,3,1.4]],
+  helo_down: [['bg','ruins'],['g',74,62,44,'fire'],['smoke',70,50,1.3],['u','hawkwreck',78,72,1.45],['u','flame',58,68,1.4],['u','flame',90,64,1.05],['u','flame',36,72,.8],['horde',128,158,72,3,1.35]],
   press: [['bg','city'],['g',58,52,18,'moon'],['u','civ',58,72,1.7],['rect',61,49,6,4.4],['u','soldier',100,72,1.6,{f:1}],['u','ul',140,73,.8]],
   water: [['bg','field'],['u','tanker',54,73,1.45],['u','bio',124,34,1.8],['u','drum',112,72,1.6],['u','drum',122,72,1.6]],
   ship: [['stars',7],['bg','sea'],['g',86,56,34],['u','ship',86,66,1.7]],
@@ -2829,10 +2850,25 @@ function thump(at, f0, f1, gain, dur) {
   const g = ac.createGain(); g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur + .05);
   o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + .1);
 }
+function tone(at, f, dur, gain, type, f2) {
+  if (!ac) return; const t = ac.currentTime + (at || 0);
+  const o = ac.createOscillator(); o.type = type || 'sine'; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+  const g = ac.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + Math.min(.08, dur / 4)); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + .05);
+}
 const tick = () => noise(.018, 'highpass', 2800, .12);
 const staticBurst = (d) => noise(d || .35, 'bandpass', 1700, .35);
 const heartbeat = () => { thump(0, 62, 38, .9, .22); thump(.24, 52, 34, .7, .22); };
 const boom = () => { thump(0, 95, 26, 1.3, 1.6); noise(1.8, 'lowpass', 700, .9); };
+// ambient beds for the different opening scenes: [sound, repeat every ms]
+const AMB = {
+  heart:  [heartbeat, 1150],
+  klaxon: [() => { tone(0, 880, .28, .16, 'square'); tone(.32, 660, .28, .16, 'square'); }, 1250],
+  static: [() => staticBurst(.22), 1900],
+  jet:    [() => { noise(2.6, 'bandpass', 2400, .22); tone(0, 520, 2.6, .05, 'sawtooth', 760); thump(0, 60, 40, .35, 1.4); }, 0],
+  wind:   [() => { noise(3.4, 'lowpass', 420, .55); noise(3.4, 'bandpass', 900, .08); }, 3300],
+  horn:   [() => { tone(0, 73, 2.2, .5, 'sawtooth'); tone(0, 110, 2.2, .25, 'sawtooth'); noise(2.2, 'lowpass', 300, .2); }, 3600],
+};
 function drone() {
   if (!ac) return; const t = ac.currentTime;
   const g = ac.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.55, t + 3);
@@ -2882,6 +2918,39 @@ function spreadRing(ids, from, color, delay) {
   }));
 }
 
+// ---------------------------------------------------------------- scenarios: each run gets its own version of the film
+const OPENERS = [
+  { art:['hospital', 'MEDICAL'], amb:'heart', lines:['A patient in a city hospital bites three nurses.', 'By morning, all four are dead. By noon, they are walking.'] },
+  { art:['cine_flight', 'AIR'], amb:'jet', lines:['A cargo flight lands with its whole crew unconscious.', 'When the medics open the hatch, the crew is already awake.'] },
+  { art:['cine_lab', 'RESEARCH'], amb:'klaxon', lines:['A containment alarm sounds at a remote research station.', 'The door log says it was opened from the inside.'] },
+  { art:['cine_camp', 'CIVIL'], amb:'wind', lines:['A fever sweeps through a crowded refugee camp.', 'On the third night, the sick stop sleeping.'] },
+  { art:['ship', 'LOGISTICS'], amb:'horn', lines:['A container ship drifts into port with no one at the helm.', 'Harbor police board her at dawn. They do not come back out.'] },
+  { art:['checkpoint', 'COMBAT'], amb:'static', lines:['A border post radios in: a riot at the gate.', 'Then the radio goes quiet. The cameras keep running.'] },
+];
+const SOURCES = [['WHO', 'WHO MODEL · IF NOTHING IS DONE'], ['CDC', 'CDC FORECAST · IF NOTHING IS DONE'], ['PENTAGON', 'PENTAGON RED TEAM · WORST CASE'], ['NATO', 'NATO PLANNING CELL · IF NOTHING IS DONE']];
+const PANELS = [
+  [['horde', 'COMBAT', 'The bitten will outnumber the living in whole cities.'], ['looters', 'CIVIL', 'Stores will empty in a day. Then the looting starts.'], ['grid', 'LOGISTICS', 'The power grid will fail, one city at a time.'], ['hospital', 'MEDICAL', 'Hospitals will lock their doors.']],
+  [['refugees', 'CIVIL', 'Millions will flee onto the highways. The infected will follow.'], ['borders', 'CIVIL', 'Borders will close with families on the wrong side.'], ['signal', 'INTEL', 'Emergency broadcasts will loop for days. Then they will stop.'], ['water', 'LOGISTICS', 'Water plants will go dark. The taps will run dry.']],
+  [['helo_down', 'AIR', 'Armies will break. Governments will go silent.'], ['nuke', 'FIRES', 'Someone will try a nuclear firebreak. It will not work.'], ['lab_siege', 'RESEARCH', 'The last labs will be overrun before they finish a cure.'], ['cult', 'CIVIL', 'The few survivors left will stop waiting for rescue.']],
+];
+const TURNS = ['This is what we are fighting to prevent.', 'None of this has happened yet.', 'This future is not written yet.', 'This is the worst case. We do not have to live it.'];
+const READY = ['ONE FORCE IS READY.', 'ONE FORCE CAN STILL MOVE.', 'ONE BRIGADE IS ALREADY LOADED.'];
+const ROLL = [['convoy', 'LOGISTICS', 'airbridge', 'AIR'], ['mech_sweep', 'COMBAT', 'apache', 'AIR'], ['redeploy', 'AIR', 'linebacker', 'COMBAT'], ['qrf', 'COMBAT', 'air_assault', 'AIR']];
+const ORDERS = ['Orders: stop the projection. Hold the line until the labs find a cure.', 'Orders: get there first. Keep the labs alive until the cure is ready.', 'Orders: buy the scientists time, whatever it costs.', 'Orders: contain it, protect the labs, and do not let the map turn red.'];
+// pick one version of every beat from the run's seed, and never open the same way twice in a row
+function scenario(S, peek) {
+  let h = 2166136261 >>> 0; const str = String(S.seed) + ':film'; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  const r = () => { h ^= h << 13; h >>>= 0; h ^= h >>> 17; h ^= h << 5; h >>>= 0; return h / 4294967296; };
+  const pick = a => a[Math.floor(r() * a.length)];
+  let oi = Math.floor(r() * OPENERS.length), last = null;
+  try { last = JSON.parse(localStorage.getItem('ecb_film') || 'null'); } catch (e) {}
+  if (last && last.seed === S.seed) oi = last.o;
+  else if (last && last.o === oi) oi = (oi + 1 + Math.floor(r() * (OPENERS.length - 1))) % OPENERS.length;
+  if (!peek) { try { localStorage.setItem('ecb_film', JSON.stringify({ seed:S.seed, o:oi })); } catch (e) {} }
+  const hh = String(Math.floor(r() * 24)).padStart(2, '0'), mm = String(Math.floor(r() * 60)).padStart(2, '0');
+  return { open:OPENERS[oi], oi, time:`${hh}:${mm}`, day:12 + Math.floor(r() * 9), src:pick(SOURCES), panels:PANELS.map(pick), turn:pick(TURNS), ready:pick(READY), roll:pick(ROLL), orders:pick(ORDERS) };
+}
+
 // ---------------------------------------------------------------- the film
 function play(S, onDone) {
   try { muted = localStorage.getItem('ecb_mute') === '1'; } catch (e) {}
@@ -2894,14 +2963,15 @@ function play(S, onDone) {
   const n1 = E.neighbors(S.pz).filter(id => !live.includes(id)), n2 = [...new Set(n1.flatMap(id => E.neighbors(id)))].filter(id => !live.includes(id) && !n1.includes(id)).slice(0, 8);
   const n3 = [...new Set(n2.flatMap(id => E.neighbors(id)))].filter(id => !live.includes(id) && !n1.includes(id) && !n2.includes(id)).slice(0, 8);
   const projDead = (3.9 + Math.min(1.8, (S.path.inf - 1) * 3 + S.path.spread - .9)).toFixed(1);
+  const V = scenario(S);
   root = document.createElement('div'); root.className = 'cine' + (RM() ? ' rm' : ''); root.id = 'cine'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'Opening cinematic');
   root.innerHTML = `
-    <div class="cs" id="cs1"><div class="cs-art dim">${ART.svg('hospital', 'MEDICAL', 'cine-art', true)}</div><div class="alarm"></div>
+    <div class="cs" id="cs1"><div class="cs-art dim">${ART.svg(V.open.art[0], V.open.art[1], 'cine-art kb', true)}</div><div class="alarm"></div>
       <div class="cs-text center"><div class="c-meta mono" id="t1a"></div><div class="c-big" id="t1b"></div><p class="c-line" id="t1c"></p><p class="c-line" id="t1d"></p></div></div>
-    <div class="cs" id="cs2">${mapSVG(S.pz, live)}<div class="c-day mono" id="t2a"></div><div class="c-sub mono" id="t2b"></div><div class="proj-stamp mono" id="stamp">WHO MODEL · IF NOTHING IS DONE</div><div class="ticker"><span id="tick">BREAKING · WHO CONFIRMS AN UNKNOWN PATHOGEN IN ${esc(liveNames.toUpperCase())} · DESIGNATED ${esc(S.path.code)} “${esc(S.path.name.toUpperCase())}” · QUARANTINE DECLARED · NO CASES CONFIRMED ANYWHERE ELSE · YET · </span></div></div>
+    <div class="cs" id="cs2">${mapSVG(S.pz, live)}<div class="c-day mono" id="t2a"></div><div class="c-sub mono" id="t2b"></div><div class="proj-stamp mono" id="stamp">${V.src[1]}</div><div class="ticker"><span id="tick">BREAKING · ${V.src[0] === 'WHO' || V.src[0] === 'CDC' ? V.src[0] + ' CONFIRMS' : 'HEALTH OFFICIALS CONFIRM'} AN UNKNOWN PATHOGEN IN ${esc(liveNames.toUpperCase())} · DESIGNATED ${esc(S.path.code)} “${esc(S.path.name.toUpperCase())}” · QUARANTINE DECLARED · NO CASES CONFIRMED ANYWHERE ELSE · YET · </span></div></div>
     <div class="cs" id="cs3"><div class="cs-art" id="p3"></div><div class="cs-text low"><div class="c-tag mono" id="t3t"></div><p class="c-cap" id="t3"></p></div></div>
     <div class="cs" id="cs3b"><div class="cs-text center"><p class="c-cap" id="t3b" style="max-width:26ch"></p></div></div>
-    <div class="cs" id="cs4"><div class="cs-art" id="p4">${ART.svg('convoy', 'LOGISTICS', 'cine-art', true)}</div><div class="cs-text low left"><div class="c-big" id="t4a"></div><ul class="c-list" id="t4b"></ul></div></div>
+    <div class="cs" id="cs4"><div class="cs-art" id="p4">${ART.svg(V.roll[0], V.roll[1], 'cine-art', true)}</div><div class="cs-text low left"><div class="c-big" id="t4a"></div><ul class="c-list" id="t4b"></ul></div></div>
     <div class="cs" id="cs5"><div class="dossier"><div class="c-meta mono">COMMANDING OFFICER</div><div class="c-name" id="t5a"></div><div class="c-meta mono" id="t5b"></div><div class="c-rule"></div><div class="c-meta mono" id="t5c"></div><p class="c-orders" id="t5d"></p></div></div>
     <div class="cs" id="cs6"><div class="slam"><div class="s-ecb">ECB</div><div class="s-out">OUTBREAK</div><div class="s-sub mono">${esc(S.path.name.toUpperCase())} · ${esc(S.path.code)}</div></div></div>
     <div class="bars"></div><div class="grain"></div>
@@ -2911,16 +2981,16 @@ function play(S, onDone) {
   root.querySelector('#cine-mute').onclick = e => { setMuted(!muted); e.target.textContent = muted ? 'Sound off' : 'Sound on'; };
   setTimeout(() => root && root.querySelector('#cine-skip').focus({ preventScroll:true }), 50);
 
-  // 1 · the hospital
-  show('cs1'); heartbeat(); const hb = setInterval(() => root && heartbeat(), 1150); timers.push(hb);
-  at(400, () => type(root.querySelector('#t1a'), `${dayBefore(16)} · 03:47 LOCAL`, 38, true));
+  // 1 · the first case (one of several openings)
+  show('cs1'); const [ambF, ambEvery] = AMB[V.open.amb] || AMB.heart; ambF(); const hb = ambEvery ? setInterval(() => root && ambF(), ambEvery) : 0; if (hb) timers.push(hb);
+  at(400, () => type(root.querySelector('#t1a'), `${dayBefore(V.day)} · ${V.time} LOCAL`, 38, true));
   at(1500, () => type(root.querySelector('#t1b'), pzN.toUpperCase(), 22, true));
-  at(2900, () => type(root.querySelector('#t1c'), 'A patient in a city hospital bites three nurses.', 46, true));
-  at(4500, () => type(root.querySelector('#t1d'), 'By morning, all four are dead. By noon, they are walking.', 46, true));
+  at(2900, () => type(root.querySelector('#t1c'), V.open.lines[0], 46, true));
+  at(4500, () => type(root.querySelector('#t1d'), V.open.lines[1], 46, true));
   // 2 · the map
   // 2 · the map: what is true today, then what the model says will happen
   const setDay = (t, sub) => { if (!root) return; const d = root.querySelector('#t2a'), b = root.querySelector('#t2b'); if (d) d.textContent = t; if (b && sub != null) b.textContent = sub; };
-  at(6900, () => { clearInterval(hb); hide('cs1'); show('cs2'); staticBurst(.4); type(root.querySelector('#t2a'), 'DAY 16 · TODAY', 24); });
+  at(6900, () => { clearInterval(hb); hide('cs1'); show('cs2'); staticBurst(.4); type(root.querySelector('#t2a'), `DAY ${V.day} · TODAY`, 24); });
   at(7700, () => type(root.querySelector('#t2b'), `CONFIRMED: ${liveNames.toUpperCase()} · ${M(cases)} CASES`, 44));
   at(9300, () => { if (!root) return; root.querySelector('#cs2').classList.add('proj'); root.querySelector('#stamp').classList.add('on'); staticBurst(.3); thump(0, 70, 40, .6, .3); setDay('DAY 30 · PROJECTED', ''); });
   spreadRing(n1, S.pz, '#c98a2c', 9600);
@@ -2930,24 +3000,24 @@ function play(S, onDone) {
   spreadRing(n3, n2[0] || n1[0] || S.pz, '#6e2318', 12600);
   at(13600, () => type(root.querySelector('#t2b'), `PROJECTED DEATHS: ${projDead} BILLION`, 40, true));
   // 3 · the collapse the model predicts
-  const panels = [['horde', 'COMBAT', 'PROJECTED · DAY 60', 'The bitten will outnumber the living in whole cities.'], ['refugees', 'CIVIL', 'PROJECTED · DAY 90', 'Millions will flee onto the highways. The infected will follow.'], ['helo_down', 'AIR', 'PROJECTED · DAY 120', 'Armies will break. Governments will go silent.']];
+  const panels = V.panels.map((p, i) => [p[0], p[1], `PROJECTED · DAY ${[60, 90, 120][i]}`, p[2]]);
   panels.forEach(([k, kind, tag, txt], i) => at(15400 + i * 2500, () => {
     if (!root) return; if (i === 0) { hide('cs2'); show('cs3'); }
     const p = root.querySelector('#p3'); p.innerHTML = ART.svg(k, kind, 'cine-art kb', true); staticBurst(.25);
     root.querySelector('#t3t').textContent = tag; type(root.querySelector('#t3'), txt, 52);
   }));
-  at(23000, () => { hide('cs3'); show('cs3b'); type(root.querySelector('#t3b'), 'This is what we are fighting to prevent.', 30, true); });
+  at(23000, () => { hide('cs3'); show('cs3b'); type(root.querySelector('#t3b'), V.turn, 30, true); });
   // 4 · the brigade
-  at(25600, () => { hide('cs3b'); show('cs4'); riser(4.2); type(root.querySelector('#t4a'), 'ONE FORCE IS READY.', 26, true); });
+  at(25600, () => { hide('cs3b'); show('cs4'); riser(4.2); type(root.querySelector('#t4a'), V.ready, 26, true); });
   ['EXPEDITIONARY COMBAT BRIGADE', '4,800 SOLDIERS · THREE MECHANIZED BATTALIONS', '155MM ARTILLERY · AIR DEFENSE · 11 HELICOPTERS', 'DRONES · ENGINEERS · CBRN · FIELD HOSPITALS'].forEach((t, i) => at(26900 + i * 650, () => {
     if (!root) return; const li = document.createElement('li'); li.textContent = t; root.querySelector('#t4b').appendChild(li); thump(0, 140, 90, .25, .12);
   }));
-  at(28700, () => { const p = root && root.querySelector('#p4'); if (p) p.innerHTML = ART.svg('airbridge', 'AIR', 'cine-art kb', true); });
+  at(28700, () => { const p = root && root.querySelector('#p4'); if (p) p.innerHTML = ART.svg(V.roll[2], V.roll[3], 'cine-art kb', true); });
   // 5 · the commander
   at(30600, () => { hide('cs4'); show('cs5'); staticBurst(.2); type(root.querySelector('#t5a'), cmd.name, 30, true); });
   at(31900, () => type(root.querySelector('#t5b'), `"${cmd.title.toUpperCase()}" · ${E.DIFFS[S.diff].name.toUpperCase()}`, 40));
   at(32800, () => type(root.querySelector('#t5c'), `STAGING AT ${start.toUpperCase()}`, 40, true));
-  at(33900, () => type(root.querySelector('#t5d'), 'Orders: stop the projection. Hold the line until the labs find a cure.', 42, true));
+  at(33900, () => type(root.querySelector('#t5d'), V.orders, 42, true));
   // 6 · title
   at(37400, () => { hide('cs5'); show('cs6'); boom(); if (droneNodes) droneNodes.g.gain.setTargetAtTime(.25, ac.currentTime, .4); });
   at(41400, () => stop());
@@ -2960,7 +3030,7 @@ function stop(silent) {
   if (!silent) { audioOff(); const d = done; done = null; if (d) setTimeout(d, silent ? 0 : 250); }
 }
 const active = () => !!root;
-return { play, stop, active };
+return { play, stop, active, scenario };
 })();
 
 </script>
