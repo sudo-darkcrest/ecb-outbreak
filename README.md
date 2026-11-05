@@ -11,4 +11,6 @@ A roguelike zombie-plague card strategy game. You command the **Expeditionary Co
 - `tools/sim.cjs`, `tools/bal.cjs`: bot playthroughs for balance testing (`node tools/bal.cjs 150`).
 - `tools/play*.py`: Playwright browser tests. `tools/sheet.cjs`, `tools/symsheet.cjs`: art contact sheets.
 
+Pushing to `main` deploys to Render automatically.
+
 Saves live in the player's browser (localStorage), so updating the page keeps runs in progress.
