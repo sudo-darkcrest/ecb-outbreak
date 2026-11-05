@@ -353,6 +353,9 @@ card({ id:'cas', name:'Close Air Support', type:'AIR', cost:1, rarity:'uncommon'
   text:s => `Call in higher command's jets. Kill <b>${pc(kp(s,.15,1,'AIR'))}</b> (about ${est(s,kp(s,.15,1,'AIR'))}). Trust −4.`,
   play:s => { const k = doKill(s, kp(s,.15,1,'AIR')); s.b.boost = 0; add(s,'trust',-4); return `Close air support destroyed ${M(k)} infected.`; } });
 // --- intel
+card({ id:'scout_screen', name:'MCV-L Scout Screen', type:'INTEL', cost:1, res:{ fuel:3 }, unit:'Scout Platoons · MCV-L',
+  text:s => { const n = worstNeighbor(s); return `Light tracked scouts screen the roads around ${TD(s).name}. Containment +10% here${n ? ` and +6% in ${RD[n].name}` : ''}, and the brigade takes 15% less exposure this week.`; },
+  play:s => { contain(s, .10); const n = worstNeighbor(s); if (n) contain(s, .06, n); s.b.expoShield = Math.max(s.b.expoShield, .15); return `MCV-L scouts screened ${TD(s).name}${n ? ` and the approaches from ${RD[n].name}` : ''}.`; } });
 card({ id:'endurance_uas', name:'Tier 3 Endurance UAS', type:'INTEL', cost:0, unit:'UAS Squadron · Tier 3', req:reqUAS,
   text:s => `Long-duration surveillance. Draw 1 card. Research +0.5%.`,
   play:s => { draw(s,1); s.research += .5; return 'Endurance UAS fed data to the labs.'; } });
@@ -700,6 +703,17 @@ ev({ id:'helo_down', title:'Helicopter Down', kind:'AIR', cond:s => s.b.helo.mul
   options:[
     { label:'Launch CSAR', fx:() => '−8 Fuel, −6 Ammo. The airframe is lost but the crew comes home. Morale +6.', req:s => (s.b.fuel >= 8 && s.b.ammo >= 6) || 'Needs 8 Fuel and 6 Ammo', apply:s => { s.b.fuel -= 8; s.b.ammo -= 6; s.b.helo.multi--; add(s,'morale',6); return 'CSAR brought the crew home.'; } },
     { label:'Abandon them', fx:() => 'Lose the helicopter. Morale −12.', apply:s => { s.b.helo.multi--; add(s,'morale',-12); return 'The crew was lost.'; } },
+  ] });
+ev({ id:'lost_patrol', title:'Scout Patrol Cut Off', kind:'INTEL', cond:s => s.turn > 2 && !!worstNeighbor(s) && s.regions[worstNeighbor(s)].z > .003,
+  ctx:s => ({ n:worstNeighbor(s) }),
+  text:(s,c) => `An MCV-L scout section probing ${RD[c.n].name} threw a track and is surrounded. Three crew and six scouts are holding inside the hull, and their sensor feed is still live.`,
+  options:[
+    { label:'Send the QRF', fx:() => '−6 Fuel, −5 Ammo. Some risk of casualties. Morale +5, and the scouts\' data gives Containment +8% here.', req:s => (s.b.fuel >= 6 && s.b.ammo >= 5) || 'Needs 6 Fuel and 5 Ammo',
+      apply:s => { s.b.fuel -= 6; s.b.ammo -= 5; let x = ''; if (rnd(s) < .3) { cas(s, .01); x = ' The QRF took losses getting them out.'; } add(s,'morale',5); contain(s, .08); return 'The QRF pulled the scouts out.' + x; } },
+    { label:'Gun run to break them out', fx:(s,c) => `Attack helicopters clear the way and destroy infected in ${RD[c.n].name}. −4 Fuel, −6 Ammo. Morale +3.`, req:s => (s.b.helo.attack > 0 && s.b.fuel >= 4 && s.b.ammo >= 6) || 'Needs an attack helicopter, 4 Fuel and 6 Ammo',
+      apply:(s,c) => { s.b.fuel -= 4; s.b.ammo -= 6; const k = doKill(s, clamp(.04 * scale(c.n), 0, .2), c.n); add(s,'morale',3); return `Gun runs over ${RD[c.n].name} destroyed ${M(k)} infected and the scouts drove out.`; } },
+    { label:'Tell them to bail out on foot', fx:() => 'The MCV-L is lost and some scouts don\'t make it. Morale −6, Supply −6.',
+      apply:s => { add(s,'morale',-6); s.b.supply = Math.max(0, s.b.supply - 6); cas(s, .006); return 'The scouts escaped on foot. The MCV-L was lost.'; } },
   ] });
 ev({ id:'press', title:'Embedded Journalist', kind:'COMMAND',
   text:s => `A war correspondent wants full access to brigade operations in ${TD(s).name}.`,

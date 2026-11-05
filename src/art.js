@@ -164,6 +164,7 @@ function hullT(p) {
   return s;
 }
 const HM = { rx:-31.6, dx:13.6, nx:33.2, ny:-12.2, dy:-21.2, sy:-13.8, sb:-7, sfx:28.2, seed:5 };
+const HL = { rx:-27, dx:9.6, nx:28.6, ny:-10.6, dy:-18.6, sy:-12.2, sb:-6.2, sfx:24.4, seed:61 };
 const HH = { rx:-34.6, dx:14.6, nx:35.2, ny:-13, dy:-22.8, sy:-14.6, sb:-7.6, sfx:30.4, seed:9 };
 // small remote weapon station: x,y = base left / deck height
 function rws(x, y, flip) { return `<rect x="${x}" y="${n2(y - 1.8)}" width="4.6" height="1.8"/><rect x="${n2(x + .8)}" y="${n2(y - 3.3)}" width="2.4" height="1.6" ${F('d2')}/><rect x="${n2(x + 2.8)}" y="${n2(y - 3)}" width=".5" height=".9" ${A(.8)}/><rect x="${n2(x + 4.4)}" y="${n2(y - 1.4)}" width="5.4" height=".5"/>`; }
@@ -188,6 +189,13 @@ const VEH = `
 <g id="h-mm">${tracks(-30, 29, 10.4, 6, 3.5)}${hullT(HM)}</g>
 <g id="h-mh">${tracks(-33, 31, 11, 7, 3.3)}${hullT(HH)}</g>
 <g id="h-ul">${UL}</g>
+<g id="h-ml">${tracks(-26, 25.2, 9.2, 5, 3.2)}${hullT(HL)}</g>
+<g id="s-ml"><use href="#h-ml"/>
+<path d="M-5.6 -18.4 L-4.8 -19.8 L10 -19.8 L10.8 -18.4 Z" ${F('d2')}/><path d="M-5 -19.6 L-4 -23.6 L6.6 -24 L11 -21.6 L11.4 -19.6 Z"/><path d="M-3.4 -22.8 L6.2 -23.2 L10.2 -21.4 L10.4 -20.4 L-3.8 -20.4 Z" ${F('d3')}/>${camo(63, [[-3.4, 9, -22.6, -20.6, 3]])}<path d="M-4 -23.6 L6.6 -24 L11 -21.6" ${AS(.4, .55)}/>
+<rect x="11" y="-22.8" width="2" height="2.4" ${F('d2')}/><rect x="12.8" y="-22.25" width="11" height=".9"/><rect x="23.6" y="-22.6" width="2" height="1.5" ${F('d3')}/>
+<rect x="-.8" y="-29" width="1.2" height="5.2" ${F('d2')}/>${SENSOR(-3.8, -29)}
+<path d="M-5.8 -26 L.2 -26.2 L.2 -24 L-5.8 -23.8 Z" ${F('d2')}/><rect x="-4.6" y="-35" width=".26" height="11"/><rect x="7.6" y="-31" width=".26" height="7"/><circle cx="-4.47" cy="-35" r=".4"/>
+</g>
 <g id="s-ifv"><use href="#h-mm"/>${MT_BODY}
 <rect x="15.4" y="-26" width="2.6" height="3.2" ${F('d2')}/><rect x="17.8" y="-25.5" width="4.6" height="1.9"/><rect x="22.2" y="-25.1" width="13.2" height="1.1"/><rect x="35" y="-25.55" width="3" height="2" ${F('d3')}/><rect x="36.2" y="-25.55" width=".4" height="2" ${F('d0')}/><rect x="16.4" y="-23.4" width="3.2" height=".6"/><path d="M17.8 -25.5 H35" ${AS(.25, .4)}/>
 ${SENSOR(-2.4, -30.6)}<rect x="9.4" y="-30" width="4" height="2"/><rect x="12.9" y="-29.6" width=".7" height="1" ${A(.8)}/>
@@ -717,7 +725,7 @@ const SC = {
   pattern: [['bg','room'],['u','map',84,36,2],['u','officer',146,72,1.5,{f:1}],['u','soldier',18,72,1.4]],
   patient_zero: [['bg','room'],['u','map',72,38,1.85],['u','reticle',110,48,.9],['u','flask',144,72,1.8],['u','bio',20,26,1.3,{o:.6}]],
   // ===== research / medical
-  escort: [['bg','farcity'],['u','lab',122,72,1.4],['u','soldier',16,72,1.45],['u','civ',38,72,1.45],['u','civ',54,72,1.35],['u','soldier',74,72,1.45]],
+  escort: [['bg','farcity'],['u','lab',122,72,1.4],['u','ml',46,72,.95,{o:.85}],['u','soldier',16,72,1.45],['u','civ',38,72,1.45],['u','civ',54,72,1.35],['u','soldier',74,72,1.45]],
   decon: [['bg','field'],['u','tent',110,72,2.1],['u','bio',110,40,1.1],['u','soldier',58,72,1.55],['rect',22,36,4,36],['line',26,40,52,54,.5,'var(--acc)'],['line',26,44,54,58,.5,'var(--acc)'],['line',26,48,50,62,.5,'var(--acc)']],
   specimen: [['bg','room'],['g',80,54,32,'red'],['u','cage',80,72,2.1],['u','zombie',82,72,1.75],['u','soldier',30,72,1.5],['u','soldier',132,72,1.5,{f:1}]],
   fst: [['bg','field'],['g',80,50,42,'fire'],['u','tent',80,72,2.6],['u','redx',80,48,1.8],['u','soldier',26,72,1.45],['u','soldier',136,72,1.45,{f:1}]],
@@ -761,6 +769,9 @@ const SC = {
   relapse: [['bg','ruins'],['g',100,56,52,'red'],['horde',70,158,72,7,1.4],['u','soldier',20,72,1.45],['u','kneel',42,72,1.45]],
   rotation: [['bg','field'],['u','plane',92,44,1.7],['u','soldier',16,72,1.35],['u','soldier',32,72,1.35],['u','soldier',48,72,1.35],['u','soldier',134,72,1.35,{f:1}],['u','soldier',150,72,1.35,{f:1}]],
   tribunal: [['bg','room'],['rect',30,56,100,4],['u','officer',50,56,1.45],['u','officer',80,56,1.45],['u','officer',110,56,1.45,{f:1}],['u','shield',142,40,1.1]],
+  // ===== MCV-L scouts
+  scout_screen: [['bg','hills'],['beam',53,31,8,84,11],['u','ml',48,72,1.3],['u','reticle',126,52,1.05],['horde',112,152,72,3,1.15]],
+  lost_patrol: [['stars',4],['bg','ruins'],['g',72,58,30,'red'],['u','ml',70,72,1.25,{r:4}],['waves',72,30,3],['horde',4,30,72,3,1.2,1],['horde',112,156,72,4,1.3]],
   // ===== field works
   w_barrier: [['bg','field'],['u','dozer',32,72,.9],['u','wall',106,72,1.05],['u','wire',150,72,.75],['horde',156,160,72,1,1.2]],
   w_firebase: [['bg','hills'],['g',105,28,9,'fire'],['u','sp',46,70,1.0],['u','sandbag',124,72,1.5],['u','kneel',118,59,1.2,{f:1}],['u','tower',152,72,1.05],['arc',106,28,162,52,10]],

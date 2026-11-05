@@ -7,7 +7,7 @@ def clear_modals(pg):
         if not pg.query_selector('#modal'): return
         if pg.query_selector('#c-go'): return 'cure'
         if pg.query_selector('#b-new'): return 'over'
-        if pg.query_selector('#b-cont'): pg.click('#b-cont')
+        if pg.query_selector('#b-cont'): pg.click('#b-cont'); pg.wait_for_timeout(1350)
         elif pg.query_selector('.rewards'): pg.click('.rewards .card')
         elif pg.query_selector('.opt:not([disabled])'): pg.click('.opt:not([disabled])')
         pg.wait_for_timeout(80)
@@ -29,7 +29,7 @@ def tasks(pg, shot=None):
     else: pg.click('#b-x')
 for vp,name in [((1440,900),'desk'),((390,844),'phone')]:
   with sync_playwright() as p:
-    b=p.chromium.launch(); pg=b.new_page(viewport={'width':vp[0],'height':vp[1]}); pg.add_init_script("try{localStorage.setItem('ecb_intro','0')}catch(e){}")
+    b=p.chromium.launch(); pg=b.new_page(viewport={'width':vp[0],'height':vp[1]}); pg.add_init_script("try{localStorage.setItem('ecb_intro','0');localStorage.setItem('ecb_tut','done')}catch(e){}")
     pg.on('pageerror', lambda e: errs.append(name+' PAGEERROR: '+str(e)))
     pg.on('console', lambda m: m.type=='error' and 'fonts' not in m.text and errs.append(name+' CONSOLE: '+m.text))
     pg.goto('file:///home/claude/ecb/dist/ECB_Outbreak.html'); pg.wait_for_timeout(300)

@@ -1,7 +1,7 @@
 import pathlib
 R = pathlib.Path(__file__).resolve().parent.parent
 (R/'dist').mkdir(exist_ok=True)
-css = (R/'src/style.css').read_text(); md = (R/'src/mapdata.js').read_text(); eng = (R/'src/engine.js').read_text(); art = (R/'src/art.js').read_text(); cine = (R/'src/cinema.js').read_text(); ui = (R/'src/ui.js').read_text()
+css = (R/'src/style.css').read_text(); md = (R/'src/mapdata.js').read_text(); eng = (R/'src/engine.js').read_text(); art = (R/'src/art.js').read_text(); cine = (R/'src/cinema.js').read_text(); sfx = (R/'src/sfx.js').read_text(); ui = (R/'src/ui.js').read_text()
 eng = eng.replace("if (typeof module !== 'undefined') module.exports = ECB;", "")
 head = '''<title>ECB: Outbreak</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -17,6 +17,7 @@ body = f'''<style>
 {md}
 {eng}
 {art}
+{sfx}
 {cine}
 </script>
 <script>

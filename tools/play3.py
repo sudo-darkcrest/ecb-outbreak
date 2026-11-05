@@ -5,7 +5,7 @@ def clear_modals(pg, shots=None):
         if not pg.query_selector('#modal'): return
         if pg.query_selector('#c-go'): return 'cure'
         if pg.query_selector('#b-new'): return 'over'
-        if pg.query_selector('#b-cont'): pg.click('#b-cont')
+        if pg.query_selector('#b-cont'): pg.click('#b-cont'); pg.wait_for_timeout(1350)
         elif pg.query_selector('.rewards'): pg.click('.rewards .card')
         elif pg.query_selector('.opt:not([disabled])'): pg.click('.opt:not([disabled])')
         pg.wait_for_timeout(80)
@@ -15,7 +15,7 @@ def play_cards(pg):
         if not c or pg.query_selector('#modal'): break
         c[0].click(); pg.wait_for_timeout(240)
 with sync_playwright() as p:
-    b=p.chromium.launch(); pg=b.new_page(viewport={'width':1440,'height':900}); pg.add_init_script("try{localStorage.setItem('ecb_intro','0')}catch(e){}")
+    b=p.chromium.launch(); pg=b.new_page(viewport={'width':1440,'height':900}); pg.add_init_script("try{localStorage.setItem('ecb_intro','0');localStorage.setItem('ecb_tut','done')}catch(e){}")
     pg.on('pageerror', lambda e: errs.append('PAGEERROR: '+str(e)))
     pg.goto('file:///home/claude/ecb/dist/ECB_Outbreak.html'); pg.wait_for_timeout(300)
     pg.fill('#t-seed','PHASE2'); pg.click('#t-start'); pg.wait_for_timeout(300)
@@ -57,8 +57,8 @@ with sync_playwright() as p:
     pg.screenshot(path='/tmp/claude-0/shots/p2_over.png')
     print(pg.evaluate("({turn:__ECB.S.turn, over:__ECB.S.over && __ECB.S.over.title, score:__ECB.S.over && __ECB.S.over.score, restored:__ECB.E.restoredCount(__ECB.S)})"))
     # the other branch: end at the cure
-    p2=b.new_page(viewport={'width':1440,'height':900}); p2.add_init_script("try{localStorage.setItem('ecb_intro','0')}catch(e){}"); p2.on('pageerror', lambda e: errs.append('P2 PAGEERROR: '+str(e)))
-    p2.add_init_script("try{localStorage.setItem('ecb_intro','0')}catch(e){}")
+    p2=b.new_page(viewport={'width':1440,'height':900}); p2.add_init_script("try{localStorage.setItem('ecb_intro','0');localStorage.setItem('ecb_tut','done')}catch(e){}"); p2.on('pageerror', lambda e: errs.append('P2 PAGEERROR: '+str(e)))
+    p2.add_init_script("try{localStorage.setItem('ecb_intro','0');localStorage.setItem('ecb_tut','done')}catch(e){}")
     p2.goto('file:///home/claude/ecb/dist/ECB_Outbreak.html'); p2.wait_for_timeout(300); p2.click('#t-start'); p2.wait_for_timeout(300)
     clear_modals(p2); p2.evaluate("__ECB.S.research = 99.99"); p2.click('#b-end'); p2.wait_for_timeout(300); clear_modals(p2)
     if p2.query_selector('#c-end'): p2.click('#c-end'); p2.wait_for_timeout(300)

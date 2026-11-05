@@ -13,7 +13,7 @@ with sync_playwright() as p:
         m = pg.query_selector('#modal')
         if m:
             if pg.query_selector('#b-new'): break
-            if pg.query_selector('#b-cont'): pg.click('#b-cont')
+            if pg.query_selector('#b-cont'): pg.click('#b-cont'); pg.wait_for_timeout(1350)
             elif pg.query_selector('.rewards'): pg.click('.rewards .card')
             elif pg.query_selector('.opt:not([disabled])'): pg.click('.opt:not([disabled])')
             else: pg.keyboard.press('Escape')

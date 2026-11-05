@@ -68,9 +68,10 @@ function openModal(html, cls, onKey) {
   m.innerHTML = `<div class="dlg ${cls || ''}" role="dialog" aria-modal="true">${html}</div>`;
   document.body.appendChild(m);
   m._key = onKey; const f = m.querySelector('button:not([disabled])'); if (f) setTimeout(() => f.focus({ preventScroll:true }), 30);
+  TUT.sync();
   return m;
 }
-function closeModal() { const m = $('#modal'); if (m) m.remove(); }
+function closeModal() { const m = $('#modal'); if (m) m.remove(); TUT.sync(); }
 
 // ------------------------------------------------------------- map
 let mapBuilt = false;
@@ -213,7 +214,7 @@ function shell() {
       <div class="week"><span class="lbl" id="h-season">Week</span><span class="w mono" id="h-week"></span></div>
       <div class="stats" id="h-stats"></div>
       <div class="cure" id="h-cure"></div>
-      <button class="hbtn" id="b-menu" aria-label="Menu">Menu</button>
+      <button class="hbtn snd" id="b-snd" aria-label="Sound on or off"></button><button class="hbtn" id="b-menu" aria-label="Menu">Menu</button>
     </header>
     <div class="main">
       <div class="mapcol">
@@ -241,7 +242,7 @@ function shell() {
   <div id="toast" aria-live="polite"></div>`;
   mapBuilt = false;
   $('#b-end').onclick = doEndTurn;
-  $('#b-menu').onclick = showMenu;
+  $('#b-menu').onclick = showMenu; sndBtn(); $('#b-snd').onclick = () => { SFX.setMuted(!SFX.isMuted()); sndBtn(); if (!SFX.isMuted()) SFX.play('click'); };
   $('#z-in').onclick = () => zoom(.7); $('#z-out').onclick = () => zoom(1.4); $('#z-reset').onclick = () => { view = { x:0, y:0, w:MD.W, h:MD.H }; renderMap(); };
   for (const b of $$('.tabs button')) b.onclick = () => { tab = b.dataset.tab; renderSide(); };
   renderLegend();
@@ -253,7 +254,7 @@ function renderLegend() {
 
 function render() {
   if (!S || !$('#app')) return;
-  renderHeader(); renderLegend(); renderMap(); renderDirective(); renderRegion(); renderSide(); renderHand();
+  renderHeader(); renderLegend(); renderMap(); renderDirective(); renderRegion(); renderSide(); renderHand(); TUT.sync();
 }
 function renderHeader() {
   $('#h-week').textContent = String(S.turn).padStart(2, '0') + ' · ' + dateOf(S.turn);
@@ -309,9 +310,9 @@ function renderRegion() {
     <div class="reg-act">${act}</div>
     ${tfBlock(id, isHere)}
     ${E.CHOKE[id] && !rs.fallen ? `<div class="note" style="margin-top:8px">If ${esc(rd.name)} falls, the ${esc(E.CHOKE[id])} closes and every resupply shrinks ${Math.round(E.CHOKE_LOSS * 100)}%.</div>` : ''}`;
-  const tb = $('#b-tf'); if (tb) tb.onclick = () => { const r = E.sendTF(S, id); toast(r.msg, !r.ok); flow(); };
-  const rb = $('#b-recall'); if (rb) rb.onclick = () => { const r = E.recallTF(S); toast(r.msg, !r.ok); flow(); };
-  const b = $('#b-deploy'); if (b) b.onclick = () => { const r = E.deploy(S, id); toast(r.msg, !r.ok); if (r.ok) { sel = null; } flow(); };
+  const tb = $('#b-tf'); if (tb) tb.onclick = () => { const from = S.b.tf ? S.b.tf.loc : S.b.loc; const r = E.sendTF(S, id); toast(r.msg, !r.ok); flow(); if (r.ok) { SFX.play('convoy'); fxConvoy(from, id, '#8fd3ea'); } };
+  const rb = $('#b-recall'); if (rb) rb.onclick = () => { const from = S.b.tf && S.b.tf.loc; const r = E.recallTF(S); toast(r.msg, !r.ok); flow(); if (r.ok) { SFX.play('convoy'); fxConvoy(from, S.b.loc, '#8fd3ea'); } };
+  const b = $('#b-deploy'); if (b) b.onclick = () => { const from = S.b.loc; const r = E.deploy(S, id); toast(r.msg, !r.ok); if (r.ok) { sel = null; } flow(); if (r.ok) { SFX.play('convoy'); fxConvoy(from, id); } };
 }
 function seasonText(id) {
   const se = E.seasonOf(E.HEMI[id], E.monthOf(S.turn)); const m = E.seasonMult(S, id);
@@ -361,7 +362,7 @@ function renderSide() {
       <div class="sec"><span class="lbl">Order of battle</span><div class="units">${unitRows}</div>
         <div class="helos"><span>ATTACK ${b.helo.attack}/${b.heloMax.attack}</span><span>MULTIROLE ${b.helo.multi}/${b.heloMax.multi}</span><span>HEAVY ${b.helo.heavy}/${b.heloMax.heavy}</span><span>UAS ${Math.round(b.uas * 100)}%</span><span>AIR READY ${Math.round(b.air)}%</span></div></div>
       <div class="sec"><span class="lbl">Enablers</span><div class="chips">${Object.entries(E.ENABLERS).map(([k, n]) => `<span class="en ${b.en[k] ? '' : 'off'}">${n}</span>`).join('')}</div></div>${supSec}`;
-    const r2 = $('#b-recall2', body); if (r2) r2.onclick = () => { const r = E.recallTF(S); toast(r.msg, !r.ok); flow(); };
+    const r2 = $('#b-recall2', body); if (r2) r2.onclick = () => { const from = S.b.tf && S.b.tf.loc; const r = E.recallTF(S); toast(r.msg, !r.ok); flow(); if (r.ok) { SFX.play('convoy'); fxConvoy(from, S.b.loc, '#8fd3ea'); } };
     for (const x of $$('.posture button', body)) x.onclick = () => { E.setPosture(S, x.dataset.p); save(); render(); };
   } else if (tab === 'regions') {
     const list = E.REGIONS.map(r => ({ r, rs:S.regions[r.id] })).sort((a, c) => (S.phase === 'restore' ? (a.rs.restored - c.rs.restored) : 0) || (c.rs.fallen - a.rs.fallen) || (c.rs.z - a.rs.z) || (c.r.pop - a.r.pop));
@@ -448,7 +449,7 @@ function showAirTasking() {
     <div class="helos" style="margin-bottom:10px"><span>ATTACK ${b.helo.attack}/${b.heloMax.attack}</span><span>MULTIROLE ${b.helo.multi}/${b.heloMax.multi}</span><span>HEAVY ${b.helo.heavy}/${b.heloMax.heavy}</span><span>UAS ${Math.round(b.uas * 100)}%</span></div>
     ${b.ato ? `<p class="note" style="font-size:14px">Already flown this week: <b>${esc(E.SORTIES[b.ato].name)}</b>. The Aviation Group is ready again next week.</p>` : ''}
     <div class="opts">${rows}</div></div>`, 'wide', k => { const id = Object.keys(E.SORTIES)[+k - 1]; if (id && E.canSortie(S, id) === true) fly(id); });
-  const fly = id => { const r = E.flySortie(S, id); toast(r.msg, !r.ok); flow(); };
+  const fly = id => { const tgt = id === 'strike' ? E.airWorst(S) : S.b.loc, from = S.b.loc; const r = E.flySortie(S, id); toast(r.msg, !r.ok); flow(); if (r.ok) { SFX.play(id === 'isr' ? 'drone' : 'rotor'); fxHelo(from, tgt, id); TUT.ev('ato'); } };
   $('#b-x', m).onclick = closeModal;
   for (const x of $$('.opt.task', m)) x.onclick = () => fly(x.dataset.s);
 }
@@ -463,7 +464,7 @@ function showEngineers() {
     <p class="note" style="font-size:14px">Built here: ${built.length ? built.map(k => `<b>${esc(E.WORKS[k].name)}</b>`).join(', ') : 'nothing yet'}. Engineer strength ${Math.round(E.engCrew(S) * 100)}%.</p>${elsewhere}
     ${b.engUsed ? '<p class="note" style="font-size:14px">The engineers already worked this week.</p>' : ''}
     <div class="opts">${rows}</div></div>`, 'wide', k => { const id = Object.keys(E.WORKS)[+k - 1]; if (id && E.canBuild(S, id) === true) go(id); });
-  const go = id => { const r = E.buildWork(S, id); toast(r.msg, !r.ok); flow(); };
+  const go = id => { const loc = S.b.loc; const r = E.buildWork(S, id); toast(r.msg, !r.ok); flow(); if (r.ok) { SFX.play('clank'); if (/finished/.test(r.msg)) { setTimeout(() => SFX.play('chime'), 650); fxPulse(loc, '#f0a53a', 2); } TUT.ev('eng'); } };
   $('#b-x', m).onclick = closeModal;
   for (const x of $$('.opt.task', m)) x.onclick = () => go(x.dataset.w);
 }
@@ -476,15 +477,139 @@ function burnIdx(i, btn) {
   }
   clearTimeout(burnArm);
   const card = btn.parentElement.querySelector('.card');
-  const go = () => { const r = E.burnCard(S, i); toast(r.msg, !r.ok); flow(); };
+  const go = () => { const r = E.burnCard(S, i); toast(r.msg, !r.ok); if (r.ok) SFX.play('whoosh'); flow(); };
   if (card && !matchMedia('(prefers-reduced-motion: reduce)').matches) { card.classList.add('burnt'); btn.remove(); setTimeout(go, 320); } else go();
 }
 function playIdx(i, elmt) {
   const ok = E.canPlay(S, i); if (ok !== true) { toast(ok, true); return; }
-  const go = () => { const r = E.playCard(S, i); toast(r.msg, !r.ok); flow(); };
+  const id = S.deck.hand[i], loc = S.b.loc;
+  const go = () => { const r = E.playCard(S, i); toast(r.msg, !r.ok); flow(); if (r.ok) { const c = E.def(id); SFX.card(c.type, E.baseId(id)); fxCard(c.type, E.baseId(id), loc); TUT.ev('card'); } };
   if (elmt && !matchMedia('(prefers-reduced-motion: reduce)').matches) { elmt.classList.add('fly'); setTimeout(go, 220); } else go();
 }
 function selectRegion(id, focus) { sel = id === S.b.loc ? null : id; if (focus && window.innerWidth > 820) {} render(); if (window.innerWidth <= 820 && focus) { const r = $('#reg'); if (r) r.scrollIntoView({ behavior:'smooth', block:'center' }); } }
+
+// ------------------------------------------------------------- sound button + map effects
+let crisisSnd = null, rewardSnd = null, fxQ = [], fxBusy = false;
+const IC_SND_ON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h3l4-3v10l-4-3H2z" fill="currentColor"/><path d="M11 5.5a3.5 3.5 0 0 1 0 5M12.6 3.6a6 6 0 0 1 0 8.8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>';
+const IC_SND_OFF = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h3l4-3v10l-4-3H2z" fill="currentColor"/><path d="M11 6l4 4M15 6l-4 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>';
+function sndBtn() { const b = $('#b-snd'); if (!b) return; const off = SFX.isMuted(); b.innerHTML = off ? IC_SND_OFF : IC_SND_ON; b.setAttribute('aria-pressed', String(!off)); b.title = off ? 'Sound is off' : 'Sound is on'; }
+const RMO = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+function fxG() { const svg = $('#map'); if (!svg) return null; let g = svg.querySelector('#g-fx'); if (!g) g = el('g', { id:'g-fx', 'pointer-events':'none' }, svg); return g; }
+function fxK() { const svg = $('#map'); const w = svg ? svg.getBoundingClientRect().width : 0; return w ? view.w / w : 1; }  // map units per screen pixel
+function tween(ms, step, done) { const t0 = performance.now(); const f = now => { const p = Math.max(0, Math.min(1, (now - t0) / ms)); step(p); if (p < 1) requestAnimationFrame(f); else if (done) done(); }; requestAnimationFrame(f); }
+const ease = p => 1 - Math.pow(1 - p, 3);
+function fxFlash(id, n, big) {
+  const g = fxG(); if (!g || RMO() || !id) return; const [x, y] = anchor(id); const k = fxK();
+  for (let i = 0; i < (n || 6); i++) setTimeout(() => {
+    const cx = x + (Math.random() - .5) * 38 * k, cy = y + (Math.random() - .5) * 22 * k, R = (big ? 16 : 9) * k;
+    const c = el('circle', { cx, cy, r:0, fill:big ? '#ff9a3a' : '#ffd27a' }, g), c2 = el('circle', { cx, cy, r:0, fill:'#fff6d8' }, g);
+    tween(big ? 650 : 420, p => { c.setAttribute('r', R * ease(p)); c.setAttribute('opacity', 1 - p); c2.setAttribute('r', R * .45 * (1 - p)); }, () => { c.remove(); c2.remove(); });
+  }, i * (big ? 170 : 90) + Math.random() * 60);
+}
+function fxPulse(id, color, rings) {
+  const g = fxG(); if (!g || RMO() || !id) return; const [x, y] = anchor(id); const k = fxK();
+  for (let i = 0; i < (rings || 2); i++) setTimeout(() => {
+    const c = el('circle', { cx:x, cy:y, r:4 * k, fill:'none', stroke:color, 'stroke-width':3.5 * k }, g);
+    tween(1400, p => { const e = ease(p); c.setAttribute('r', (4 + 46 * e) * k); c.setAttribute('stroke-width', 3.5 * k * (1 - p) + .3 * k); c.setAttribute('opacity', .95 * (1 - p)); }, () => c.remove());
+  }, i * 420);
+}
+function curve(a, b, lift) { const [x1, y1] = anchor(a), [x2, y2] = anchor(b); return { x1, y1, x2, y2, cx:(x1 + x2) / 2, cy:Math.min(y1, y2) - (lift || 30) }; }
+function qpt(c, p) { const u = 1 - p; return [u * u * c.x1 + 2 * u * p * c.cx + p * p * c.x2, u * u * c.y1 + 2 * u * p * c.cy + p * p * c.y2]; }
+function fxConvoy(from, to, color) {
+  const g = fxG(); if (!g || RMO() || !from || !to || from === to) return; const k = fxK(), c = curve(from, to, 22), col = color || '#5cb6d4';
+  const trail = el('path', { d:`M${c.x1},${c.y1} Q${c.cx},${c.cy} ${c.x2},${c.y2}`, fill:'none', stroke:col, 'stroke-width':2.2 * k, 'stroke-dasharray':`${5 * k} ${4 * k}`, opacity:.8 }, g);
+  const vs = [0, 1, 2].map(() => el('rect', { width:10 * k, height:6.5 * k, rx:1.6 * k, fill:col, stroke:'#06222c', 'stroke-width':1.2 * k }, g));
+  tween(1800, p => { vs.forEach((v, i) => { const q = Math.max(0, Math.min(1, ease(p) - i * .07)); const [x, y] = qpt(c, q); v.setAttribute('x', x - 5 * k); v.setAttribute('y', y - 3.2 * k); }); },
+    () => tween(450, p => { trail.setAttribute('opacity', .75 * (1 - p)); vs.forEach(v => v.setAttribute('opacity', 1 - p)); }, () => { trail.remove(); vs.forEach(v => v.remove()); }));
+}
+function fxHelo(from, to, kind) {
+  const g = fxG(); if (!g || RMO() || !to) return; const k = fxK();
+  const h = el('g', {}, g);
+  if (kind === 'isr') { el('path', { d:'M-7 0 H7 M0 -2.4 V3 M-2.4 3 H2.4', stroke:'#cdb8ff', 'stroke-width':1.3, fill:'none', 'stroke-linecap':'round' }, h); }
+  else { const heavy = kind === 'lift'; el('ellipse', { rx:heavy ? 5.4 : 4.2, ry:1.7, fill:'#8fd3ea', stroke:'#06222c', 'stroke-width':.5 }, h); el('path', { d:`M${heavy ? -5 : -4} 0 L-9.5 -.4`, stroke:'#8fd3ea', 'stroke-width':1 }, h); el('line', { x1:-6.5, y1:-2.4, x2:6.5, y2:-2.4, stroke:'#e6f7fc', 'stroke-width':.7 }, h); if (heavy) el('line', { x1:-9, y1:-2.6, x2:-1, y2:-2.6, stroke:'#e6f7fc', 'stroke-width':.7 }, h); }
+  let c; const [tx, ty] = anchor(to);
+  if (kind === 'lift') c = { x1:tx - 110, y1:ty - 70, x2:tx, y2:ty - 8, cx:tx - 50, cy:ty - 80 };
+  else if (!from || from === to) c = { x1:tx - 8, y1:ty - 10, x2:tx + 5, y2:ty - 6, cx:tx + 34, cy:ty - 44 };
+  else c = curve(from, to, 34);
+  const hs = 2.3 * k; const place = (x, y, dir) => h.setAttribute('transform', `translate(${x.toFixed(1)},${y.toFixed(1)}) scale(${(hs * dir).toFixed(3)},${hs.toFixed(3)})`);
+  place(c.x1, c.y1, 1);
+  tween(1300, p => { const [x, y] = qpt(c, ease(p)); place(x, y, c.x2 >= c.x1 ? 1 : -1); }, () => {
+    if (kind === 'strike') fxFlash(to, 7); else if (kind === 'isr') fxPulse(to, '#cdb8ff', 2); else if (kind === 'medevac') fxPulse(to, '#bdf2ad', 1); else if (kind === 'lift') fxPulse(to, '#f0dea8', 1);
+    tween(1200, p => { const a = p * Math.PI * 2; place(c.x2 + Math.cos(a) * 16 * k, c.y2 - 8 * k + Math.sin(a) * 9 * k, -Math.sin(a) >= 0 ? 1 : -1); h.setAttribute('opacity', p > .7 ? ((1 - p) / .3).toFixed(2) : 1); }, () => h.remove());
+  });
+}
+const CARD_FX = { COMBAT:l => fxFlash(l, 6), FIRES:l => fxFlash(l, 4, true), INTEL:l => fxPulse(l, '#cdb8ff', 1), RESEARCH:l => fxPulse(l, '#8ff0d0', 1), MEDICAL:l => fxPulse(l, '#bdf2ad', 1), CIVIL:l => fxPulse(l, '#98ebe2', 1), COMMAND:l => fxPulse(l, '#ffe28a', 1), CURE:l => fxPulse(l, '#86ffc0', 2), LOGISTICS:l => fxPulse(l, '#f0dea8', 1) };
+function fxCard(type, id, loc) {
+  if (type === 'AIR') { const kind = ['apache', 'cas', 'combined_arms', 'air_assault'].includes(id) ? 'strike' : ['airbridge', 'mass_vax'].includes(id) ? 'lift' : id === 'medevac' ? 'medevac' : 'fly'; return fxHelo(loc, loc, kind); }
+  if (id === 'thermobaric' || id === 'firebreak') return fxFlash(loc, 6, true);
+  (CARD_FX[type] || (() => {}))(loc);
+}
+function afterSitrep() {
+  if (fxBusy) return; closeModal();
+  if (fxQ.length && !RMO()) { const q = fxQ; fxQ = []; fxBusy = true; render(); q.forEach((f, i) => setTimeout(f, 80 + i * 160));
+    let doneBeat = false; const fin = () => { if (doneBeat) return; doneBeat = true; clearTimeout(tm); document.removeEventListener('pointerdown', fin, true); document.removeEventListener('keydown', fin, true); fxBusy = false; flow(); TUT.ev('sitrep'); };
+    const tm = setTimeout(fin, 1250); setTimeout(() => { document.addEventListener('pointerdown', fin, true); document.addEventListener('keydown', fin, true); }, 60); }
+  else { fxQ = []; flow(); TUT.ev('sitrep'); }
+}
+
+// ------------------------------------------------------------- first-run tutorial (coach marks)
+const TUT = (function () {
+  const KEY = 'ecb_tut';
+  const noModal = () => !$('#modal') && !!$('#app') && !fxBusy;
+  const STEPS = [
+    { id:'crisis', when:() => !!(S && S.crisis && $('#modal .opts')), target:'#modal .opts', place:'top', title:'A crisis', text:'Most weeks start with a crisis. Pick one of the choices. Each one says what it costs and what it does.', until:'crisis' },
+    { id:'map', when:noModal, target:'.mapwrap', title:'The world map', text:'Red regions are infected. The blue marker is your brigade. Tap any region to see it up close.', next:'Next' },
+    { id:'hand', when:noModal, target:'#hand', title:'Your orders', text:'These cards are your orders for the week. Tap one to play it. Each card costs Command Points, the amber dots on the left.', until:'card', next:'Skip' },
+    { id:'ato', when:noModal, target:'#b-ato', title:'Air tasking (free)', text:'Once a week your helicopters can fly a mission for free. Tap Air Tasking and pick one.', until:'ato', next:'Skip' },
+    { id:'eng', when:noModal, target:'#b-eng', title:'Engineers (free)', text:'Your engineers can also do one week of building where the brigade is. Tap Engineers and pick a project.', until:'eng', next:'Skip' },
+    { id:'end', when:noModal, target:'#b-end', title:'End the week', text:'When you are done, press End Week. The outbreak spreads, the labs research, and you get a report.', until:'end' },
+    { id:'sitrep', when:() => !!$('#modal #b-cont'), target:'#modal .sit-items', place:'top', title:'Situation report', text:'This is what happened this week: good news in green, bad news in red. Press Continue to see it on the map.', until:'sitrep' },
+    { id:'region', when:noModal, target:'#reg', title:'Region card', text:'This card shows the region you picked. Pick another region on the map to move the brigade there or send a Task Force to guard it.', next:'Next' },
+    { id:'posture', when:noModal, target:'.posture', pre:() => { if (tab !== 'brigade') { tab = 'brigade'; renderSide(); } }, title:'Posture', text:'Posture is what your troops do on their own every week. Assault kills more, Hold stops the spread, Relief saves civilians.', next:'Next' },
+    { id:'dir', when:noModal, target:'#dir', title:'HQ directive', text:'Higher command gives you goals with a deadline. Finish them for a reward and a new card.', next:'Next' },
+    { id:'done', when:noModal, target:null, title:'You are ready', text:'Keep the labs safe until cure research reaches 100%. Finish week 2 on your own. How to Play and these tips are in the Menu any time.', next:'Got it' },
+  ];
+  let step = -1, box = null, hl = null, shownStep = -1;
+  const get = () => { try { return localStorage.getItem(KEY); } catch (e) { return null; } };
+  const put = v => { try { localStorage.setItem(KEY, v); } catch (e) {} };
+  function maybeStart() { const v = get(); if (v === 'done') return; if (v != null && !isNaN(+v)) { step = +v; sync(); return; } if (S && S.turn <= 1) start(false); }
+  function start(replay) { step = replay && !(S && S.crisis && $('#modal .opts')) ? 1 : 0; shownStep = -1; put(String(step)); sync(); }
+  function finish() { step = -1; put('done'); hide(); }
+  function advance() { step++; shownStep = -1; if (step >= STEPS.length) return finish(); put(String(step)); sync(); }
+  function ev(name) { if (step < 0) return; const st = STEPS[step]; if (st && st.until === name) advance(); }
+  function hide() { if (box) box.style.display = 'none'; if (hl) { hl.classList.remove('tut-hl'); hl = null; } }
+  function sync() { requestAnimationFrame(draw); }
+  function draw() {
+    if (step < 0) return hide();
+    const st = STEPS[step]; if (!st || !S) return hide();
+    if (!st.when()) return hide();
+    if (st.pre && shownStep !== step) st.pre();
+    const tgt = st.target ? document.querySelector(st.target) : null;
+    if (!box) { box = document.createElement('div'); box.id = 'tut'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); }
+    if (shownStep !== step) {
+      box.innerHTML = `<div class="tut-k">Tip ${step + 1} of ${STEPS.length}</div><div class="tut-t">${st.title}</div><p>${st.text}</p><div class="tut-b">${st.next ? `<button class="btn sm" id="tut-next">${st.next}</button>` : ''}<button class="tut-skip" id="tut-skip">Skip all tips</button></div><i class="tut-arrow"></i>`;
+      box.querySelector('#tut-skip').onclick = finish; const nb = box.querySelector('#tut-next'); if (nb) nb.onclick = advance;
+      if (tgt && window.innerWidth <= 820) { const r = tgt.getBoundingClientRect(); if (r.top < 60 || r.bottom > window.innerHeight - 60) tgt.scrollIntoView({ block:'center', behavior:'smooth' }); setTimeout(sync, 420); }
+      shownStep = step;
+    }
+    if (hl && hl !== tgt) hl.classList.remove('tut-hl'); hl = tgt; if (hl && st.target !== '.mapwrap') hl.classList.add('tut-hl');
+    box.style.display = 'block';
+    const vw = window.innerWidth, vh = window.innerHeight, bw = Math.min(330, vw - 24); box.style.width = bw + 'px';
+    const bh = box.offsetHeight; const arrow = box.querySelector('.tut-arrow');
+    if (!tgt) { box.style.left = (vw - bw) / 2 + 'px'; box.style.top = Math.max(12, (vh - bh) / 2) + 'px'; arrow.style.display = 'none'; return; }
+    if (st.place === 'top') { const dlg = document.querySelector('#modal .dlg'); const dr = dlg ? dlg.getBoundingClientRect() : null; const wide = dr && dr.left > bw + 24; box.style.left = (wide ? Math.max(12, dr.left - bw - 16) : (vw - bw) / 2) + 'px'; box.style.top = (wide ? Math.max(12, dr.top + 40) : 10) + 'px'; arrow.style.display = 'none'; return; }
+    const r = tgt.getBoundingClientRect(); let top, below;
+    if (st.target === '.mapwrap') { top = Math.max(12, r.top + Math.min(r.height * .55, r.height - bh - 12)); below = null; }
+    else if (r.bottom + bh + 18 < vh) { top = r.bottom + 12; below = true; }
+    else if (r.top - bh - 18 > 0) { top = r.top - bh - 12; below = false; }
+    else { top = Math.max(12, vh - bh - 12); below = null; }
+    const cx = Math.min(Math.max(r.left + r.width / 2, 20), vw - 20); const left = Math.min(Math.max(12, cx - bw / 2), vw - bw - 12);
+    box.style.left = left + 'px'; box.style.top = top + 'px';
+    if (below === null) arrow.style.display = 'none'; else { arrow.style.display = 'block'; arrow.className = 'tut-arrow ' + (below ? 'up' : 'down'); arrow.style.left = Math.min(Math.max(14, cx - left), bw - 14) + 'px'; }
+  }
+  return { start, maybeStart, ev, sync, finish, active:() => step >= 0 };
+})();
+window.addEventListener('scroll', () => TUT.sync(), { passive:true });
 
 // ------------------------------------------------------------- flow
 function save() { if (S && !S.over) put(SAVE_KEY, S); }
@@ -499,7 +624,14 @@ function flow() {
 }
 function doEndTurn() {
   if (S.crisis) { showCrisis(); return; }
+  const before = { loc:S.b.loc, tf:S.b.tf && S.b.tf.loc, z:S.regions[S.b.loc].z, tz:S.b.tf ? S.regions[S.b.tf.loc].z : 0, rest:E.REGIONS.filter(r => S.regions[r.id].restored).map(r => r.id) };
   const rep = E.endTurn(S); if (!rep) return;
+  SFX.play(rep.fell.length ? 'alarm' : 'drum'); TUT.ev('end');
+  if (before.z > .002) fxQ.push(() => fxFlash(before.loc, 6));
+  if (before.tf && before.tz > .002) fxQ.push(() => fxFlash(before.tf, 4));
+  for (const id of rep.fell) fxQ.push(() => fxPulse(id, '#ff4a3a', 3));
+  const nowRest = E.REGIONS.filter(r => S.regions[r.id].restored && !before.rest.includes(r.id)).map(r => r.id);
+  if (nowRest.length) { fxQ.push(() => SFX.play('chime')); for (const id of nowRest) fxQ.push(() => fxPulse(id, '#6fe0a0', 3)); }
   pendingSitrep = rep; sel = null; flow();
 }
 function showCrisis() {
@@ -507,7 +639,8 @@ function showCrisis() {
   let text = ''; try { text = e.text(S, S.crisis.ctx); } catch (x) { text = ''; }
   const m = openModal(`<div class="crisis-art">${ART.svg(S.crisis.id, e.kind, '', true)}</div><div class="dlg-h"><div><div class="k" style="color:${col}">Crisis · ${e.kind} · Week ${S.turn}</div><h2>${esc(e.title)}</h2></div></div>
     <div class="dlg-b"><p>${text}</p><div class="opts">${opts.map(o => `<button class="opt" data-i="${o.i}" ${o.ok ? '' : 'disabled'}><span class="num">${o.i + 1}</span><span><span class="ol">${esc(o.label)}</span><div class="of">${esc(o.fx)}${o.ok ? '' : ` <span class="why">Unavailable: ${esc(o.why)}</span>`}</div></span></button>`).join('')}</div></div>`, '', k => { const n = +k - 1; const o = opts[n]; if (o && o.ok) choose(n); });
-  const choose = i => { const r = E.resolveCrisis(S, i); if (r.ok) toast(r.msg); flow(); };
+  const key = S.turn + ':' + S.crisis.id; if (crisisSnd !== key) { crisisSnd = key; SFX.play('radio'); }
+  const choose = i => { const r = E.resolveCrisis(S, i); if (r.ok) { toast(r.msg); SFX.play('click'); TUT.ev('crisis'); } flow(); };
   for (const b of $$('.opt', m)) b.onclick = () => choose(+b.dataset.i);
   if (!opts.some(o => o.ok)) { S.crisis = null; flow(); }
 }
@@ -535,11 +668,11 @@ function showSitrep() {
       ${rep.phase === 'restore' ? `<div class="stat"><span class="lbl">Regions restored</span><span class="v mono good">${rep.restoredAfter}/${E.REGIONS.length}${rep.restoredAfter > rep.restoredBefore ? ` <small>+${rep.restoredAfter - rep.restoredBefore}</small>` : ''}</span></div>` : `<div class="stat"><span class="lbl">Cure research</span><span class="v mono good">+${dr.toFixed(1)}%</span></div>`}
       <div class="stat"><span class="lbl">Brigade</span><span class="v mono ${dp < 0 ? 'bad' : ''}">${dp <= 0 ? '−' : '+'}${Math.abs(dp)}</span></div></div>
       <div class="sit-items">${items.map(i => `<div class="${i.k}">${esc(i.t)}</div>`).join('') || '<div>A quiet week.</div>'}</div></div>
-    <div class="dlg-f"><button class="btn" id="b-cont">Continue</button></div>`, '', k => { if (k === 'Enter' || k === ' ') flow(); });
-  $('#b-cont', m).onclick = flow;
+    <div class="dlg-f"><button class="btn" id="b-cont">Continue</button></div>`, '', k => { if (k === 'Enter' || k === ' ') afterSitrep(); });
+  $('#b-cont', m).onclick = afterSitrep;
 }
 function showReward() {
-  const pr = S.pendingReward;
+  const pr = S.pendingReward; if (rewardSnd !== S.turn) { rewardSnd = S.turn; SFX.play('chime'); }
   const m = openModal(`<div class="dlg-h"><div><div class="k" style="color:var(--good)">${esc(pr.reason)}</div><h2>Choose a new order</h2></div></div>
     <div class="dlg-b"><p class="note" style="font-size:14px">Higher command is sending reinforcements and new capabilities. Pick one card to add to your deck.</p><div class="rewards">${pr.options.map(id => cardHTML(id, { cls:'big', attr:`data-id="${id}"` })).join('')}</div></div>
     <div class="dlg-f"><button class="btn ghost" id="b-up">Upgrade a card instead</button><button class="btn ghost" id="b-rm">Remove a card instead</button><button class="btn ghost" id="b-sup">Take a supply drop (+15 supply, +10 ammo)</button></div>`, 'wide');
@@ -600,11 +733,13 @@ function showMenu() {
     <div class="dlg-b"><div class="opts">
       <button class="opt" id="m-how"><span class="num">?</span><span><span class="ol">How to play</span><div class="of">Rules, cards and win conditions.</div></span></button>
       <button class="opt" id="m-film"><span class="num">▶</span><span><span class="ol">Replay the opening cinematic</span><div class="of">Watch this run's intro again.</div></span></button>
+      <button class="opt" id="m-tut"><span class="num">i</span><span><span class="ol">Show the tutorial tips</span><div class="of">Walk through the basics again, step by step.</div></span></button>
+      <button class="opt" id="m-snd"><span class="num">♪</span><span><span class="ol">Sound: ${SFX.isMuted() ? 'off' : 'on'}</span><div class="of">Gunfire, helicopters, radio and alarms. Tap to switch.</div></span></button>
       <button class="opt" id="m-oob"><span class="num">≡</span><span><span class="ol">Brigade order of battle</span><div class="of">What the ECB is made of.</div></span></button>
       <button class="opt" id="m-title"><span class="num">⌂</span><span><span class="ol">Title screen</span><div class="of">Your run stays saved. Continue it from the title screen.</div></span></button>
       <button class="opt" id="m-quit"><span class="num">×</span><span><span class="ol">Abandon this run</span><div class="of">Ends the run now and counts it as a loss.</div></span></button>
     </div></div>`);
-  $('#b-x', m).onclick = closeModal; $('#m-how', m).onclick = showHowTo; $('#m-film', m).onclick = () => { closeModal(); CINE.play(S, enterGame); }; $('#m-oob', m).onclick = showOOB; $('#m-title', m).onclick = showTitle;
+  $('#b-x', m).onclick = closeModal; $('#m-how', m).onclick = showHowTo; $('#m-film', m).onclick = () => { closeModal(); CINE.play(S, enterGame); }; $('#m-oob', m).onclick = showOOB; $('#m-tut', m).onclick = () => { closeModal(); TUT.start(true); }; $('#m-snd', m).onclick = () => { SFX.setMuted(!SFX.isMuted()); sndBtn(); $('#m-snd .ol', m).textContent = 'Sound: ' + (SFX.isMuted() ? 'off' : 'on'); if (!SFX.isMuted()) SFX.play('click'); }; $('#m-title', m).onclick = showTitle;
   $('#m-quit', m).onclick = () => { $('#m-quit', m).querySelector('.ol').textContent = 'Tap again to confirm'; $('#m-quit', m).onclick = () => { S.over = { win:false, title:'Run Abandoned', text:'You handed over command.' }; S.over.score = E.score(S); flow(); }; };
 }
 function howHTML() {
@@ -628,6 +763,7 @@ function howHTML() {
     <li><b>Seasons and chokepoints:</b> winter slows the infected in cold regions. Five regions hold strategic chokepoints (anchor icons): Panama, Suez, Malacca, Hormuz and the Bosporus. Each one that falls shrinks your resupply.</li>
     <li><b>Burn cards</b> you don't want with the flame button on a card in your hand (tap it twice). The card leaves your deck for good and you get back half its cost in Command Points right away. Halves are saved until they add up to a whole point, so burning two 1-cost cards gives you 1 point. Your deck can't go below ${E.MIN_DECK} cards.</li>
     <li><b>Shortcuts:</b> keys 1–9 play cards or pick crisis choices, A opens air tasking, G opens engineers, E ends the week.</li>
+    <li><b>Sound and tips:</b> the speaker button at the top turns sound on or off. The Menu can replay the tutorial tips.</li>
   </ol></div>`;
 }
 function showHowTo() { const m = openModal(`<div class="dlg-h"><h2>How to play</h2><button class="hbtn" id="b-x">Close</button></div><div class="dlg-b">${howHTML()}</div>`, 'wide'); $('#b-x', m).onclick = () => S && $('#app') ? closeModal() : closeModal(); }
@@ -689,8 +825,10 @@ function showTitle() {
 }
 function introOn() { try { return localStorage.getItem('ecb_intro') !== '0'; } catch (e) { return true; } }
 function startGame(opts) { S = E.newGame(opts); pendingSitrep = null; sel = null; tab = 'brigade'; view = { x:0, y:0, w:MD.W, h:MD.H }; closeModal(); if (introOn() && !opts.noIntro) CINE.play(S, enterGame); else enterGame(); }
-function enterGame() { closeModal(); shell(); flow(); }
+function enterGame() { closeModal(); shell(); flow(); TUT.maybeStart(); }
 
+document.addEventListener('pointerdown', () => SFX.unlock(), { once:true });
+window.addEventListener('resize', () => TUT.sync());
 // ------------------------------------------------------------- keys
 document.addEventListener('keydown', e => {
   if (CINE.active()) { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); CINE.stop(); } return; }

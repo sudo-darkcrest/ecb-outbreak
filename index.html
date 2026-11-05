@@ -427,6 +427,24 @@ b{color:#fff;font-weight:700}
 .opt.task .tc{font-size:12px;color:#c9b98f;margin-top:4px}
 @media (max-width:820px){ .wk{width:100%} .wkb{flex:1 1 0;min-width:0} .opt.task{grid-template-columns:84px minmax(0,1fr)} .opt.task .thumb{width:84px} }
 
+/* sound button */
+.hbtn.snd{padding:5px 8px;display:inline-grid;place-items:center}
+.hbtn.snd svg{width:16px;height:16px;display:block}
+.hbtn.snd[aria-pressed="true"]{color:var(--friend)}
+/* tutorial coach marks */
+#tut{position:fixed;z-index:60;background:#0f1d22;border:1px solid #8fd3ea;border-radius:10px;padding:12px 14px 12px;box-shadow:0 14px 40px rgba(0,0,0,.6),0 0 0 4px rgba(143,211,234,.12);color:var(--ink);display:none;animation:tutIn .25s ease-out}
+#tut .tut-k{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#8fd3ea}
+#tut .tut-t{font-weight:700;font-size:16px;margin-top:2px}
+#tut p{margin:6px 0 10px;font-size:14px;line-height:1.45;color:#d6dfdc}
+#tut .tut-b{display:flex;align-items:center;gap:12px;justify-content:space-between}
+#tut .tut-skip{background:none;border:0;color:var(--dim);text-decoration:underline;font-size:12.5px;padding:6px 0;margin-left:auto}
+#tut .tut-arrow{position:absolute;width:12px;height:12px;background:#0f1d22;transform:translateX(-50%) rotate(45deg)}
+#tut .tut-arrow.up{top:-7px;border-left:1px solid #8fd3ea;border-top:1px solid #8fd3ea}
+#tut .tut-arrow.down{bottom:-7px;border-right:1px solid #8fd3ea;border-bottom:1px solid #8fd3ea}
+.tut-hl{outline:2px solid #8fd3ea !important;outline-offset:3px;border-radius:8px;animation:tutPulse 1.6s ease-in-out infinite}
+@keyframes tutPulse{0%,100%{outline-color:rgba(143,211,234,1)}50%{outline-color:rgba(143,211,234,.35)}}
+@keyframes tutIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
 </style>
 <div id="root"></div>
 <script>
@@ -787,6 +805,9 @@ card({ id:'cas', name:'Close Air Support', type:'AIR', cost:1, rarity:'uncommon'
   text:s => `Call in higher command's jets. Kill <b>${pc(kp(s,.15,1,'AIR'))}</b> (about ${est(s,kp(s,.15,1,'AIR'))}). Trust −4.`,
   play:s => { const k = doKill(s, kp(s,.15,1,'AIR')); s.b.boost = 0; add(s,'trust',-4); return `Close air support destroyed ${M(k)} infected.`; } });
 // --- intel
+card({ id:'scout_screen', name:'MCV-L Scout Screen', type:'INTEL', cost:1, res:{ fuel:3 }, unit:'Scout Platoons · MCV-L',
+  text:s => { const n = worstNeighbor(s); return `Light tracked scouts screen the roads around ${TD(s).name}. Containment +10% here${n ? ` and +6% in ${RD[n].name}` : ''}, and the brigade takes 15% less exposure this week.`; },
+  play:s => { contain(s, .10); const n = worstNeighbor(s); if (n) contain(s, .06, n); s.b.expoShield = Math.max(s.b.expoShield, .15); return `MCV-L scouts screened ${TD(s).name}${n ? ` and the approaches from ${RD[n].name}` : ''}.`; } });
 card({ id:'endurance_uas', name:'Tier 3 Endurance UAS', type:'INTEL', cost:0, unit:'UAS Squadron · Tier 3', req:reqUAS,
   text:s => `Long-duration surveillance. Draw 1 card. Research +0.5%.`,
   play:s => { draw(s,1); s.research += .5; return 'Endurance UAS fed data to the labs.'; } });
@@ -1134,6 +1155,17 @@ ev({ id:'helo_down', title:'Helicopter Down', kind:'AIR', cond:s => s.b.helo.mul
   options:[
     { label:'Launch CSAR', fx:() => '−8 Fuel, −6 Ammo. The airframe is lost but the crew comes home. Morale +6.', req:s => (s.b.fuel >= 8 && s.b.ammo >= 6) || 'Needs 8 Fuel and 6 Ammo', apply:s => { s.b.fuel -= 8; s.b.ammo -= 6; s.b.helo.multi--; add(s,'morale',6); return 'CSAR brought the crew home.'; } },
     { label:'Abandon them', fx:() => 'Lose the helicopter. Morale −12.', apply:s => { s.b.helo.multi--; add(s,'morale',-12); return 'The crew was lost.'; } },
+  ] });
+ev({ id:'lost_patrol', title:'Scout Patrol Cut Off', kind:'INTEL', cond:s => s.turn > 2 && !!worstNeighbor(s) && s.regions[worstNeighbor(s)].z > .003,
+  ctx:s => ({ n:worstNeighbor(s) }),
+  text:(s,c) => `An MCV-L scout section probing ${RD[c.n].name} threw a track and is surrounded. Three crew and six scouts are holding inside the hull, and their sensor feed is still live.`,
+  options:[
+    { label:'Send the QRF', fx:() => '−6 Fuel, −5 Ammo. Some risk of casualties. Morale +5, and the scouts\' data gives Containment +8% here.', req:s => (s.b.fuel >= 6 && s.b.ammo >= 5) || 'Needs 6 Fuel and 5 Ammo',
+      apply:s => { s.b.fuel -= 6; s.b.ammo -= 5; let x = ''; if (rnd(s) < .3) { cas(s, .01); x = ' The QRF took losses getting them out.'; } add(s,'morale',5); contain(s, .08); return 'The QRF pulled the scouts out.' + x; } },
+    { label:'Gun run to break them out', fx:(s,c) => `Attack helicopters clear the way and destroy infected in ${RD[c.n].name}. −4 Fuel, −6 Ammo. Morale +3.`, req:s => (s.b.helo.attack > 0 && s.b.fuel >= 4 && s.b.ammo >= 6) || 'Needs an attack helicopter, 4 Fuel and 6 Ammo',
+      apply:(s,c) => { s.b.fuel -= 4; s.b.ammo -= 6; const k = doKill(s, clamp(.04 * scale(c.n), 0, .2), c.n); add(s,'morale',3); return `Gun runs over ${RD[c.n].name} destroyed ${M(k)} infected and the scouts drove out.`; } },
+    { label:'Tell them to bail out on foot', fx:() => 'The MCV-L is lost and some scouts don\'t make it. Morale −6, Supply −6.',
+      apply:s => { add(s,'morale',-6); s.b.supply = Math.max(0, s.b.supply - 6); cas(s, .006); return 'The scouts escaped on foot. The MCV-L was lost.'; } },
   ] });
 ev({ id:'press', title:'Embedded Journalist', kind:'COMMAND',
   text:s => `A war correspondent wants full access to brigade operations in ${TD(s).name}.`,
@@ -1978,6 +2010,7 @@ function hullT(p) {
   return s;
 }
 const HM = { rx:-31.6, dx:13.6, nx:33.2, ny:-12.2, dy:-21.2, sy:-13.8, sb:-7, sfx:28.2, seed:5 };
+const HL = { rx:-27, dx:9.6, nx:28.6, ny:-10.6, dy:-18.6, sy:-12.2, sb:-6.2, sfx:24.4, seed:61 };
 const HH = { rx:-34.6, dx:14.6, nx:35.2, ny:-13, dy:-22.8, sy:-14.6, sb:-7.6, sfx:30.4, seed:9 };
 // small remote weapon station: x,y = base left / deck height
 function rws(x, y, flip) { return `<rect x="${x}" y="${n2(y - 1.8)}" width="4.6" height="1.8"/><rect x="${n2(x + .8)}" y="${n2(y - 3.3)}" width="2.4" height="1.6" ${F('d2')}/><rect x="${n2(x + 2.8)}" y="${n2(y - 3)}" width=".5" height=".9" ${A(.8)}/><rect x="${n2(x + 4.4)}" y="${n2(y - 1.4)}" width="5.4" height=".5"/>`; }
@@ -2002,6 +2035,13 @@ const VEH = `
 <g id="h-mm">${tracks(-30, 29, 10.4, 6, 3.5)}${hullT(HM)}</g>
 <g id="h-mh">${tracks(-33, 31, 11, 7, 3.3)}${hullT(HH)}</g>
 <g id="h-ul">${UL}</g>
+<g id="h-ml">${tracks(-26, 25.2, 9.2, 5, 3.2)}${hullT(HL)}</g>
+<g id="s-ml"><use href="#h-ml"/>
+<path d="M-5.6 -18.4 L-4.8 -19.8 L10 -19.8 L10.8 -18.4 Z" ${F('d2')}/><path d="M-5 -19.6 L-4 -23.6 L6.6 -24 L11 -21.6 L11.4 -19.6 Z"/><path d="M-3.4 -22.8 L6.2 -23.2 L10.2 -21.4 L10.4 -20.4 L-3.8 -20.4 Z" ${F('d3')}/>${camo(63, [[-3.4, 9, -22.6, -20.6, 3]])}<path d="M-4 -23.6 L6.6 -24 L11 -21.6" ${AS(.4, .55)}/>
+<rect x="11" y="-22.8" width="2" height="2.4" ${F('d2')}/><rect x="12.8" y="-22.25" width="11" height=".9"/><rect x="23.6" y="-22.6" width="2" height="1.5" ${F('d3')}/>
+<rect x="-.8" y="-29" width="1.2" height="5.2" ${F('d2')}/>${SENSOR(-3.8, -29)}
+<path d="M-5.8 -26 L.2 -26.2 L.2 -24 L-5.8 -23.8 Z" ${F('d2')}/><rect x="-4.6" y="-35" width=".26" height="11"/><rect x="7.6" y="-31" width=".26" height="7"/><circle cx="-4.47" cy="-35" r=".4"/>
+</g>
 <g id="s-ifv"><use href="#h-mm"/>${MT_BODY}
 <rect x="15.4" y="-26" width="2.6" height="3.2" ${F('d2')}/><rect x="17.8" y="-25.5" width="4.6" height="1.9"/><rect x="22.2" y="-25.1" width="13.2" height="1.1"/><rect x="35" y="-25.55" width="3" height="2" ${F('d3')}/><rect x="36.2" y="-25.55" width=".4" height="2" ${F('d0')}/><rect x="16.4" y="-23.4" width="3.2" height=".6"/><path d="M17.8 -25.5 H35" ${AS(.25, .4)}/>
 ${SENSOR(-2.4, -30.6)}<rect x="9.4" y="-30" width="4" height="2"/><rect x="12.9" y="-29.6" width=".7" height="1" ${A(.8)}/>
@@ -2531,7 +2571,7 @@ const SC = {
   pattern: [['bg','room'],['u','map',84,36,2],['u','officer',146,72,1.5,{f:1}],['u','soldier',18,72,1.4]],
   patient_zero: [['bg','room'],['u','map',72,38,1.85],['u','reticle',110,48,.9],['u','flask',144,72,1.8],['u','bio',20,26,1.3,{o:.6}]],
   // ===== research / medical
-  escort: [['bg','farcity'],['u','lab',122,72,1.4],['u','soldier',16,72,1.45],['u','civ',38,72,1.45],['u','civ',54,72,1.35],['u','soldier',74,72,1.45]],
+  escort: [['bg','farcity'],['u','lab',122,72,1.4],['u','ml',46,72,.95,{o:.85}],['u','soldier',16,72,1.45],['u','civ',38,72,1.45],['u','civ',54,72,1.35],['u','soldier',74,72,1.45]],
   decon: [['bg','field'],['u','tent',110,72,2.1],['u','bio',110,40,1.1],['u','soldier',58,72,1.55],['rect',22,36,4,36],['line',26,40,52,54,.5,'var(--acc)'],['line',26,44,54,58,.5,'var(--acc)'],['line',26,48,50,62,.5,'var(--acc)']],
   specimen: [['bg','room'],['g',80,54,32,'red'],['u','cage',80,72,2.1],['u','zombie',82,72,1.75],['u','soldier',30,72,1.5],['u','soldier',132,72,1.5,{f:1}]],
   fst: [['bg','field'],['g',80,50,42,'fire'],['u','tent',80,72,2.6],['u','redx',80,48,1.8],['u','soldier',26,72,1.45],['u','soldier',136,72,1.45,{f:1}]],
@@ -2575,6 +2615,9 @@ const SC = {
   relapse: [['bg','ruins'],['g',100,56,52,'red'],['horde',70,158,72,7,1.4],['u','soldier',20,72,1.45],['u','kneel',42,72,1.45]],
   rotation: [['bg','field'],['u','plane',92,44,1.7],['u','soldier',16,72,1.35],['u','soldier',32,72,1.35],['u','soldier',48,72,1.35],['u','soldier',134,72,1.35,{f:1}],['u','soldier',150,72,1.35,{f:1}]],
   tribunal: [['bg','room'],['rect',30,56,100,4],['u','officer',50,56,1.45],['u','officer',80,56,1.45],['u','officer',110,56,1.45,{f:1}],['u','shield',142,40,1.1]],
+  // ===== MCV-L scouts
+  scout_screen: [['bg','hills'],['beam',53,31,8,84,11],['u','ml',48,72,1.3],['u','reticle',126,52,1.05],['horde',112,152,72,3,1.15]],
+  lost_patrol: [['stars',4],['bg','ruins'],['g',72,58,30,'red'],['u','ml',70,72,1.25,{r:4}],['waves',72,30,3],['horde',4,30,72,3,1.2,1],['horde',112,156,72,4,1.3]],
   // ===== field works
   w_barrier: [['bg','field'],['u','dozer',32,72,.9],['u','wall',106,72,1.05],['u','wire',150,72,.75],['horde',156,160,72,1,1.2]],
   w_firebase: [['bg','hills'],['g',105,28,9,'fire'],['u','sp',46,70,1.0],['u','sandbag',124,72,1.5],['u','kneel',118,59,1.2,{f:1}],['u','tower',152,72,1.05],['arc',106,28,162,52,10]],
@@ -2628,6 +2671,125 @@ function svg(key, kind, cls, big) {
   return s + (big ? '' : `<rect width="160" height="86" fill="url(#dither)"/><rect width="160" height="86" fill="url(#scan)"/>`) + `<rect width="160" height="86" fill="url(#vig)"/></svg>`;
 }
 return { sprite, svg, PAL, has: key => !!SC[key], keys: () => Object.keys(SC) };
+})();
+
+/* ECB: OUTBREAK — in-game sound effects. Everything is synthesized with WebAudio, no audio files.
+   Shares the 'ecb_mute' setting with the opening cinematic. */
+const SFX = (function () {
+'use strict';
+const VOL = .32;
+let ac = null, master = null, nbuf = null, muted = false; const last = {};
+try { muted = localStorage.getItem('ecb_mute') === '1'; } catch (e) {}
+function ctx() {
+  if (muted) return null;
+  if (!ac) {
+    try {
+      ac = new (window.AudioContext || window.webkitAudioContext)();
+      const comp = ac.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 4; comp.connect(ac.destination);
+      master = ac.createGain(); master.gain.value = VOL; master.connect(comp);
+      nbuf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate); const d = nbuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    } catch (e) { ac = null; return null; }
+  }
+  if (ac.state === 'suspended') { try { ac.resume(); } catch (e) {} }
+  return ac;
+}
+function setMuted(m) { muted = !!m; try { localStorage.setItem('ecb_mute', muted ? '1' : '0'); } catch (e) {} if (ac && master) master.gain.setTargetAtTime(muted ? 0 : VOL, ac.currentTime, .05); }
+const isMuted = () => muted;
+function unlock() { if (!muted) ctx(); }
+
+// ---- building blocks (t = absolute AudioContext time)
+function nz(t, dur, type, freq, gain, q, freq2) {
+  const s = ac.createBufferSource(); s.buffer = nbuf; s.loop = true;
+  const f = ac.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(freq, t); if (freq2) f.frequency.exponentialRampToValueAtTime(freq2, t + dur); f.Q.value = q || .8;
+  const g = ac.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + .004); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random() * 1.5); s.stop(t + dur + .05);
+}
+function tone(t, dur, type, f0, f1, gain, attack) {
+  const o = ac.createOscillator(); o.type = type; o.frequency.setValueAtTime(f0, t); if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  const g = ac.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + (attack || .006)); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + .05);
+}
+// a sustained source with an envelope; returns nodes for modulation
+function bed(t, dur, build, att, rel, gain) {
+  const g = ac.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + att); g.gain.setValueAtTime(gain, t + Math.max(att, dur - rel)); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  g.connect(master); build(g); return g;
+}
+
+// ---- the sounds
+const S = {
+  // small-arms fire: two or three bursts of rifle / machine-gun shots
+  gunfire() { const t0 = ac.currentTime + .02; let t = t0;
+    for (let b = 0; b < 3; b++) { const n = 4 + Math.floor(Math.random() * 5);
+      for (let i = 0; i < n; i++) { nz(t, .07, 'bandpass', 1200 + Math.random() * 900, .9, 1.1); nz(t, .12, 'lowpass', 500, .5); tone(t, .05, 'square', 170, 55, .18); t += .065 + Math.random() * .03; }
+      t += .16 + Math.random() * .14; }
+    nz(t, .6, 'lowpass', 900, .12); },
+  // 30mm autocannon: slower, heavier rounds
+  cannon() { let t = ac.currentTime + .02; for (let i = 0; i < 6; i++) { nz(t, .16, 'lowpass', 900, .95); tone(t, .14, 'sine', 120, 40, .7); nz(t, .04, 'highpass', 3000, .35); t += .17; } },
+  // artillery / mortar: thump, crack, rolling boom, a second impact further away
+  boom() { const t = ac.currentTime + .02;
+    tone(t, 1.1, 'sine', 95, 26, 1.1); nz(t, 1.6, 'lowpass', 650, .9, .7, 120); nz(t, .05, 'highpass', 3200, .5);
+    tone(t + .55, .9, 'sine', 70, 24, .55); nz(t + .55, 1.3, 'lowpass', 420, .45, .7, 90); },
+  big() { const t = ac.currentTime + .02; tone(t, 2.2, 'sine', 80, 18, 1.4); nz(t, 2.8, 'lowpass', 900, 1, .6, 70); nz(t, .1, 'highpass', 2600, .6); },
+  // helicopter: rotor "whup" (amplitude-modulated low noise) + turbine whine, flying past
+  rotor(dur) { dur = dur || 2.6; const t = ac.currentTime + .02;
+    bed(t, dur, g => {
+      const s = ac.createBufferSource(); s.buffer = nbuf; s.loop = true;
+      const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(260, t); lp.frequency.linearRampToValueAtTime(520, t + dur * .5); lp.frequency.linearRampToValueAtTime(240, t + dur);
+      const am = ac.createGain(); am.gain.value = .5; const lfo = ac.createOscillator(); lfo.type = 'square'; lfo.frequency.value = 9.5; const lg = ac.createGain(); lg.gain.value = .5;
+      lfo.connect(lg); lg.connect(am.gain); s.connect(lp); lp.connect(am); am.connect(g); s.start(t); s.stop(t + dur + .1); lfo.start(t); lfo.stop(t + dur + .1);
+      const w = ac.createOscillator(); w.type = 'sawtooth'; w.frequency.setValueAtTime(820, t); w.frequency.linearRampToValueAtTime(900, t + dur * .5); w.frequency.linearRampToValueAtTime(760, t + dur);
+      const wf = ac.createBiquadFilter(); wf.type = 'bandpass'; wf.frequency.value = 1400; wf.Q.value = 3; const wg = ac.createGain(); wg.gain.value = .05; w.connect(wf); wf.connect(wg); wg.connect(g); w.start(t); w.stop(t + dur + .1);
+    }, .5, dur * .45, 1); },
+  // small drone: thin propeller buzz
+  drone() { const t = ac.currentTime + .02, dur = 1.8;
+    bed(t, dur, g => { const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(180, t); o.frequency.linearRampToValueAtTime(230, t + dur * .5); o.frequency.linearRampToValueAtTime(170, t + dur);
+      const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 2; o.connect(f); f.connect(g); o.start(t); o.stop(t + dur + .1); }, .3, .8, .25);
+    tone(t + .2, .08, 'sine', 1800, 1800, .1); tone(t + .32, .08, 'sine', 2200, 2200, .1); },
+  // radio: squelch, crackle, two beeps
+  radio() { const t = ac.currentTime + .02;
+    nz(t, .12, 'bandpass', 2400, .55, 1.5);
+    for (let i = 0; i < 14; i++) nz(t + .08 + Math.random() * .55, .02 + Math.random() * .03, 'bandpass', 1500 + Math.random() * 1600, .25 + Math.random() * .3, 2);
+    nz(t + .1, .6, 'bandpass', 1800, .1, 1);
+    tone(t + .72, .08, 'square', 1250, 1250, .08); tone(t + .84, .1, 'square', 950, 950, .08); },
+  // region falls: two-tone siren
+  alarm() { const t = ac.currentTime + .02;
+    for (let i = 0; i < 6; i++) { const f = i % 2 ? 620 : 830; tone(t + i * .28, .3, 'sawtooth', f, f, .13, .02); tone(t + i * .28, .3, 'sine', f / 2, f / 2, .12, .02); }
+    tone(t, 1.9, 'sine', 55, 45, .25, .2); },
+  // convoy / redeploy: diesel rumble with track clatter
+  convoy() { const t = ac.currentTime + .02, dur = 2;
+    bed(t, dur, g => { const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(42, t); o.frequency.linearRampToValueAtTime(58, t + dur * .6); o.frequency.linearRampToValueAtTime(46, t + dur);
+      const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 240; o.connect(f); f.connect(g); o.start(t); o.stop(t + dur + .1); }, .35, .7, .5);
+    for (let i = 0; i < 16; i++) nz(t + .2 + i * .1, .03, 'highpass', 3500, .08); nz(t, dur, 'lowpass', 300, .2); },
+  // engineers: metal clanks
+  clank() { const t = ac.currentTime + .02; for (let i = 0; i < 3; i++) { const u = t + i * .2; tone(u, .18, 'square', 330 - i * 30, 210, .1); tone(u, .25, 'triangle', 1240 + i * 60, 1100, .08); nz(u, .05, 'bandpass', 2600, .3, 3); } },
+  // something good: soft bell
+  chime() { const t = ac.currentTime + .02; tone(t, 1.3, 'sine', 880, 880, .2, .01); tone(t + .12, 1.3, 'sine', 1320, 1320, .14, .01); tone(t + .24, 1.5, 'sine', 1760, 1760, .08, .01); },
+  // research / intel: computer beeps
+  beeps() { const t = ac.currentTime + .02; [0, .1, .2].forEach((d, i) => tone(t + d, .07, 'sine', 1400 + i * 300, 1400 + i * 300, .1)); },
+  // medical: two soft tones
+  medic() { const t = ac.currentTime + .02; tone(t, .5, 'sine', 660, 660, .14); tone(t + .18, .7, 'sine', 990, 990, .12); },
+  // burning a card
+  whoosh() { const t = ac.currentTime + .02; nz(t, .7, 'bandpass', 300, .6, 1.2, 2200); nz(t + .1, .5, 'lowpass', 500, .3); },
+  // end of week: low drum
+  drum() { const t = ac.currentTime + .02; tone(t, .5, 'sine', 110, 48, .8); nz(t, .25, 'lowpass', 400, .3); tone(t + .32, .5, 'sine', 98, 44, .6); },
+  // ui click
+  click() { const t = ac.currentTime + .01; nz(t, .025, 'highpass', 2600, .25); },
+};
+function play(name, arg) {
+  if (muted || !S[name]) return;
+  if (!ctx()) return;
+  const now = performance.now(); if (last[name] && now - last[name] < 140) return; last[name] = now;
+  try { S[name](arg); } catch (e) {}
+}
+const FOR_CARD = { COMBAT:'gunfire', FIRES:'boom', AIR:'rotor', INTEL:'beeps', RESEARCH:'beeps', MEDICAL:'medic', LOGISTICS:'convoy', CIVIL:'chime', COMMAND:'radio', CURE:'chime' };
+function card(type, id) {
+  if (id === 'thermobaric' || id === 'firebreak') return play('big');
+  if (id === 'mech_sweep' || id === 'hw_platoon' || id === 'linebacker') return play('cannon');
+  if (id === 'uas_recon' || id === 'endurance_uas') return play('drone');
+  if (id === 'cas') return play('big');
+  play(FOR_CARD[type] || 'click');
+}
+return { play, card, setMuted, isMuted, unlock };
 })();
 
 /* ECB: OUTBREAK — opening cinematic. Built from the current run: origin, pathogen, commander, staging base. */
@@ -2717,6 +2879,7 @@ function spreadRing(ids, from, color, delay) {
 
 // ---------------------------------------------------------------- the film
 function play(S, onDone) {
+  try { muted = localStorage.getItem('ecb_mute') === '1'; } catch (e) {}
   stop(true);
   done = onDone; audioOn(); drone();
   const pzN = E.RD[S.pz].name, start = E.RD[S.b.loc].name, cmd = E.CMD[S.cmd];
@@ -2867,9 +3030,10 @@ function openModal(html, cls, onKey) {
   m.innerHTML = `<div class="dlg ${cls || ''}" role="dialog" aria-modal="true">${html}</div>`;
   document.body.appendChild(m);
   m._key = onKey; const f = m.querySelector('button:not([disabled])'); if (f) setTimeout(() => f.focus({ preventScroll:true }), 30);
+  TUT.sync();
   return m;
 }
-function closeModal() { const m = $('#modal'); if (m) m.remove(); }
+function closeModal() { const m = $('#modal'); if (m) m.remove(); TUT.sync(); }
 
 // ------------------------------------------------------------- map
 let mapBuilt = false;
@@ -3012,7 +3176,7 @@ function shell() {
       <div class="week"><span class="lbl" id="h-season">Week</span><span class="w mono" id="h-week"></span></div>
       <div class="stats" id="h-stats"></div>
       <div class="cure" id="h-cure"></div>
-      <button class="hbtn" id="b-menu" aria-label="Menu">Menu</button>
+      <button class="hbtn snd" id="b-snd" aria-label="Sound on or off"></button><button class="hbtn" id="b-menu" aria-label="Menu">Menu</button>
     </header>
     <div class="main">
       <div class="mapcol">
@@ -3040,7 +3204,7 @@ function shell() {
   <div id="toast" aria-live="polite"></div>`;
   mapBuilt = false;
   $('#b-end').onclick = doEndTurn;
-  $('#b-menu').onclick = showMenu;
+  $('#b-menu').onclick = showMenu; sndBtn(); $('#b-snd').onclick = () => { SFX.setMuted(!SFX.isMuted()); sndBtn(); if (!SFX.isMuted()) SFX.play('click'); };
   $('#z-in').onclick = () => zoom(.7); $('#z-out').onclick = () => zoom(1.4); $('#z-reset').onclick = () => { view = { x:0, y:0, w:MD.W, h:MD.H }; renderMap(); };
   for (const b of $$('.tabs button')) b.onclick = () => { tab = b.dataset.tab; renderSide(); };
   renderLegend();
@@ -3052,7 +3216,7 @@ function renderLegend() {
 
 function render() {
   if (!S || !$('#app')) return;
-  renderHeader(); renderLegend(); renderMap(); renderDirective(); renderRegion(); renderSide(); renderHand();
+  renderHeader(); renderLegend(); renderMap(); renderDirective(); renderRegion(); renderSide(); renderHand(); TUT.sync();
 }
 function renderHeader() {
   $('#h-week').textContent = String(S.turn).padStart(2, '0') + ' · ' + dateOf(S.turn);
@@ -3108,9 +3272,9 @@ function renderRegion() {
     <div class="reg-act">${act}</div>
     ${tfBlock(id, isHere)}
     ${E.CHOKE[id] && !rs.fallen ? `<div class="note" style="margin-top:8px">If ${esc(rd.name)} falls, the ${esc(E.CHOKE[id])} closes and every resupply shrinks ${Math.round(E.CHOKE_LOSS * 100)}%.</div>` : ''}`;
-  const tb = $('#b-tf'); if (tb) tb.onclick = () => { const r = E.sendTF(S, id); toast(r.msg, !r.ok); flow(); };
-  const rb = $('#b-recall'); if (rb) rb.onclick = () => { const r = E.recallTF(S); toast(r.msg, !r.ok); flow(); };
-  const b = $('#b-deploy'); if (b) b.onclick = () => { const r = E.deploy(S, id); toast(r.msg, !r.ok); if (r.ok) { sel = null; } flow(); };
+  const tb = $('#b-tf'); if (tb) tb.onclick = () => { const from = S.b.tf ? S.b.tf.loc : S.b.loc; const r = E.sendTF(S, id); toast(r.msg, !r.ok); flow(); if (r.ok) { SFX.play('convoy'); fxConvoy(from, id, '#8fd3ea'); } };
+  const rb = $('#b-recall'); if (rb) rb.onclick = () => { const from = S.b.tf && S.b.tf.loc; const r = E.recallTF(S); toast(r.msg, !r.ok); flow(); if (r.ok) { SFX.play('convoy'); fxConvoy(from, S.b.loc, '#8fd3ea'); } };
+  const b = $('#b-deploy'); if (b) b.onclick = () => { const from = S.b.loc; const r = E.deploy(S, id); toast(r.msg, !r.ok); if (r.ok) { sel = null; } flow(); if (r.ok) { SFX.play('convoy'); fxConvoy(from, id); } };
 }
 function seasonText(id) {
   const se = E.seasonOf(E.HEMI[id], E.monthOf(S.turn)); const m = E.seasonMult(S, id);
@@ -3160,7 +3324,7 @@ function renderSide() {
       <div class="sec"><span class="lbl">Order of battle</span><div class="units">${unitRows}</div>
         <div class="helos"><span>ATTACK ${b.helo.attack}/${b.heloMax.attack}</span><span>MULTIROLE ${b.helo.multi}/${b.heloMax.multi}</span><span>HEAVY ${b.helo.heavy}/${b.heloMax.heavy}</span><span>UAS ${Math.round(b.uas * 100)}%</span><span>AIR READY ${Math.round(b.air)}%</span></div></div>
       <div class="sec"><span class="lbl">Enablers</span><div class="chips">${Object.entries(E.ENABLERS).map(([k, n]) => `<span class="en ${b.en[k] ? '' : 'off'}">${n}</span>`).join('')}</div></div>${supSec}`;
-    const r2 = $('#b-recall2', body); if (r2) r2.onclick = () => { const r = E.recallTF(S); toast(r.msg, !r.ok); flow(); };
+    const r2 = $('#b-recall2', body); if (r2) r2.onclick = () => { const from = S.b.tf && S.b.tf.loc; const r = E.recallTF(S); toast(r.msg, !r.ok); flow(); if (r.ok) { SFX.play('convoy'); fxConvoy(from, S.b.loc, '#8fd3ea'); } };
     for (const x of $$('.posture button', body)) x.onclick = () => { E.setPosture(S, x.dataset.p); save(); render(); };
   } else if (tab === 'regions') {
     const list = E.REGIONS.map(r => ({ r, rs:S.regions[r.id] })).sort((a, c) => (S.phase === 'restore' ? (a.rs.restored - c.rs.restored) : 0) || (c.rs.fallen - a.rs.fallen) || (c.rs.z - a.rs.z) || (c.r.pop - a.r.pop));
@@ -3247,7 +3411,7 @@ function showAirTasking() {
     <div class="helos" style="margin-bottom:10px"><span>ATTACK ${b.helo.attack}/${b.heloMax.attack}</span><span>MULTIROLE ${b.helo.multi}/${b.heloMax.multi}</span><span>HEAVY ${b.helo.heavy}/${b.heloMax.heavy}</span><span>UAS ${Math.round(b.uas * 100)}%</span></div>
     ${b.ato ? `<p class="note" style="font-size:14px">Already flown this week: <b>${esc(E.SORTIES[b.ato].name)}</b>. The Aviation Group is ready again next week.</p>` : ''}
     <div class="opts">${rows}</div></div>`, 'wide', k => { const id = Object.keys(E.SORTIES)[+k - 1]; if (id && E.canSortie(S, id) === true) fly(id); });
-  const fly = id => { const r = E.flySortie(S, id); toast(r.msg, !r.ok); flow(); };
+  const fly = id => { const tgt = id === 'strike' ? E.airWorst(S) : S.b.loc, from = S.b.loc; const r = E.flySortie(S, id); toast(r.msg, !r.ok); flow(); if (r.ok) { SFX.play(id === 'isr' ? 'drone' : 'rotor'); fxHelo(from, tgt, id); TUT.ev('ato'); } };
   $('#b-x', m).onclick = closeModal;
   for (const x of $$('.opt.task', m)) x.onclick = () => fly(x.dataset.s);
 }
@@ -3262,7 +3426,7 @@ function showEngineers() {
     <p class="note" style="font-size:14px">Built here: ${built.length ? built.map(k => `<b>${esc(E.WORKS[k].name)}</b>`).join(', ') : 'nothing yet'}. Engineer strength ${Math.round(E.engCrew(S) * 100)}%.</p>${elsewhere}
     ${b.engUsed ? '<p class="note" style="font-size:14px">The engineers already worked this week.</p>' : ''}
     <div class="opts">${rows}</div></div>`, 'wide', k => { const id = Object.keys(E.WORKS)[+k - 1]; if (id && E.canBuild(S, id) === true) go(id); });
-  const go = id => { const r = E.buildWork(S, id); toast(r.msg, !r.ok); flow(); };
+  const go = id => { const loc = S.b.loc; const r = E.buildWork(S, id); toast(r.msg, !r.ok); flow(); if (r.ok) { SFX.play('clank'); if (/finished/.test(r.msg)) { setTimeout(() => SFX.play('chime'), 650); fxPulse(loc, '#f0a53a', 2); } TUT.ev('eng'); } };
   $('#b-x', m).onclick = closeModal;
   for (const x of $$('.opt.task', m)) x.onclick = () => go(x.dataset.w);
 }
@@ -3275,15 +3439,139 @@ function burnIdx(i, btn) {
   }
   clearTimeout(burnArm);
   const card = btn.parentElement.querySelector('.card');
-  const go = () => { const r = E.burnCard(S, i); toast(r.msg, !r.ok); flow(); };
+  const go = () => { const r = E.burnCard(S, i); toast(r.msg, !r.ok); if (r.ok) SFX.play('whoosh'); flow(); };
   if (card && !matchMedia('(prefers-reduced-motion: reduce)').matches) { card.classList.add('burnt'); btn.remove(); setTimeout(go, 320); } else go();
 }
 function playIdx(i, elmt) {
   const ok = E.canPlay(S, i); if (ok !== true) { toast(ok, true); return; }
-  const go = () => { const r = E.playCard(S, i); toast(r.msg, !r.ok); flow(); };
+  const id = S.deck.hand[i], loc = S.b.loc;
+  const go = () => { const r = E.playCard(S, i); toast(r.msg, !r.ok); flow(); if (r.ok) { const c = E.def(id); SFX.card(c.type, E.baseId(id)); fxCard(c.type, E.baseId(id), loc); TUT.ev('card'); } };
   if (elmt && !matchMedia('(prefers-reduced-motion: reduce)').matches) { elmt.classList.add('fly'); setTimeout(go, 220); } else go();
 }
 function selectRegion(id, focus) { sel = id === S.b.loc ? null : id; if (focus && window.innerWidth > 820) {} render(); if (window.innerWidth <= 820 && focus) { const r = $('#reg'); if (r) r.scrollIntoView({ behavior:'smooth', block:'center' }); } }
+
+// ------------------------------------------------------------- sound button + map effects
+let crisisSnd = null, rewardSnd = null, fxQ = [], fxBusy = false;
+const IC_SND_ON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h3l4-3v10l-4-3H2z" fill="currentColor"/><path d="M11 5.5a3.5 3.5 0 0 1 0 5M12.6 3.6a6 6 0 0 1 0 8.8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>';
+const IC_SND_OFF = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h3l4-3v10l-4-3H2z" fill="currentColor"/><path d="M11 6l4 4M15 6l-4 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>';
+function sndBtn() { const b = $('#b-snd'); if (!b) return; const off = SFX.isMuted(); b.innerHTML = off ? IC_SND_OFF : IC_SND_ON; b.setAttribute('aria-pressed', String(!off)); b.title = off ? 'Sound is off' : 'Sound is on'; }
+const RMO = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+function fxG() { const svg = $('#map'); if (!svg) return null; let g = svg.querySelector('#g-fx'); if (!g) g = el('g', { id:'g-fx', 'pointer-events':'none' }, svg); return g; }
+function fxK() { const svg = $('#map'); const w = svg ? svg.getBoundingClientRect().width : 0; return w ? view.w / w : 1; }  // map units per screen pixel
+function tween(ms, step, done) { const t0 = performance.now(); const f = now => { const p = Math.max(0, Math.min(1, (now - t0) / ms)); step(p); if (p < 1) requestAnimationFrame(f); else if (done) done(); }; requestAnimationFrame(f); }
+const ease = p => 1 - Math.pow(1 - p, 3);
+function fxFlash(id, n, big) {
+  const g = fxG(); if (!g || RMO() || !id) return; const [x, y] = anchor(id); const k = fxK();
+  for (let i = 0; i < (n || 6); i++) setTimeout(() => {
+    const cx = x + (Math.random() - .5) * 38 * k, cy = y + (Math.random() - .5) * 22 * k, R = (big ? 16 : 9) * k;
+    const c = el('circle', { cx, cy, r:0, fill:big ? '#ff9a3a' : '#ffd27a' }, g), c2 = el('circle', { cx, cy, r:0, fill:'#fff6d8' }, g);
+    tween(big ? 650 : 420, p => { c.setAttribute('r', R * ease(p)); c.setAttribute('opacity', 1 - p); c2.setAttribute('r', R * .45 * (1 - p)); }, () => { c.remove(); c2.remove(); });
+  }, i * (big ? 170 : 90) + Math.random() * 60);
+}
+function fxPulse(id, color, rings) {
+  const g = fxG(); if (!g || RMO() || !id) return; const [x, y] = anchor(id); const k = fxK();
+  for (let i = 0; i < (rings || 2); i++) setTimeout(() => {
+    const c = el('circle', { cx:x, cy:y, r:4 * k, fill:'none', stroke:color, 'stroke-width':3.5 * k }, g);
+    tween(1400, p => { const e = ease(p); c.setAttribute('r', (4 + 46 * e) * k); c.setAttribute('stroke-width', 3.5 * k * (1 - p) + .3 * k); c.setAttribute('opacity', .95 * (1 - p)); }, () => c.remove());
+  }, i * 420);
+}
+function curve(a, b, lift) { const [x1, y1] = anchor(a), [x2, y2] = anchor(b); return { x1, y1, x2, y2, cx:(x1 + x2) / 2, cy:Math.min(y1, y2) - (lift || 30) }; }
+function qpt(c, p) { const u = 1 - p; return [u * u * c.x1 + 2 * u * p * c.cx + p * p * c.x2, u * u * c.y1 + 2 * u * p * c.cy + p * p * c.y2]; }
+function fxConvoy(from, to, color) {
+  const g = fxG(); if (!g || RMO() || !from || !to || from === to) return; const k = fxK(), c = curve(from, to, 22), col = color || '#5cb6d4';
+  const trail = el('path', { d:`M${c.x1},${c.y1} Q${c.cx},${c.cy} ${c.x2},${c.y2}`, fill:'none', stroke:col, 'stroke-width':2.2 * k, 'stroke-dasharray':`${5 * k} ${4 * k}`, opacity:.8 }, g);
+  const vs = [0, 1, 2].map(() => el('rect', { width:10 * k, height:6.5 * k, rx:1.6 * k, fill:col, stroke:'#06222c', 'stroke-width':1.2 * k }, g));
+  tween(1800, p => { vs.forEach((v, i) => { const q = Math.max(0, Math.min(1, ease(p) - i * .07)); const [x, y] = qpt(c, q); v.setAttribute('x', x - 5 * k); v.setAttribute('y', y - 3.2 * k); }); },
+    () => tween(450, p => { trail.setAttribute('opacity', .75 * (1 - p)); vs.forEach(v => v.setAttribute('opacity', 1 - p)); }, () => { trail.remove(); vs.forEach(v => v.remove()); }));
+}
+function fxHelo(from, to, kind) {
+  const g = fxG(); if (!g || RMO() || !to) return; const k = fxK();
+  const h = el('g', {}, g);
+  if (kind === 'isr') { el('path', { d:'M-7 0 H7 M0 -2.4 V3 M-2.4 3 H2.4', stroke:'#cdb8ff', 'stroke-width':1.3, fill:'none', 'stroke-linecap':'round' }, h); }
+  else { const heavy = kind === 'lift'; el('ellipse', { rx:heavy ? 5.4 : 4.2, ry:1.7, fill:'#8fd3ea', stroke:'#06222c', 'stroke-width':.5 }, h); el('path', { d:`M${heavy ? -5 : -4} 0 L-9.5 -.4`, stroke:'#8fd3ea', 'stroke-width':1 }, h); el('line', { x1:-6.5, y1:-2.4, x2:6.5, y2:-2.4, stroke:'#e6f7fc', 'stroke-width':.7 }, h); if (heavy) el('line', { x1:-9, y1:-2.6, x2:-1, y2:-2.6, stroke:'#e6f7fc', 'stroke-width':.7 }, h); }
+  let c; const [tx, ty] = anchor(to);
+  if (kind === 'lift') c = { x1:tx - 110, y1:ty - 70, x2:tx, y2:ty - 8, cx:tx - 50, cy:ty - 80 };
+  else if (!from || from === to) c = { x1:tx - 8, y1:ty - 10, x2:tx + 5, y2:ty - 6, cx:tx + 34, cy:ty - 44 };
+  else c = curve(from, to, 34);
+  const hs = 2.3 * k; const place = (x, y, dir) => h.setAttribute('transform', `translate(${x.toFixed(1)},${y.toFixed(1)}) scale(${(hs * dir).toFixed(3)},${hs.toFixed(3)})`);
+  place(c.x1, c.y1, 1);
+  tween(1300, p => { const [x, y] = qpt(c, ease(p)); place(x, y, c.x2 >= c.x1 ? 1 : -1); }, () => {
+    if (kind === 'strike') fxFlash(to, 7); else if (kind === 'isr') fxPulse(to, '#cdb8ff', 2); else if (kind === 'medevac') fxPulse(to, '#bdf2ad', 1); else if (kind === 'lift') fxPulse(to, '#f0dea8', 1);
+    tween(1200, p => { const a = p * Math.PI * 2; place(c.x2 + Math.cos(a) * 16 * k, c.y2 - 8 * k + Math.sin(a) * 9 * k, -Math.sin(a) >= 0 ? 1 : -1); h.setAttribute('opacity', p > .7 ? ((1 - p) / .3).toFixed(2) : 1); }, () => h.remove());
+  });
+}
+const CARD_FX = { COMBAT:l => fxFlash(l, 6), FIRES:l => fxFlash(l, 4, true), INTEL:l => fxPulse(l, '#cdb8ff', 1), RESEARCH:l => fxPulse(l, '#8ff0d0', 1), MEDICAL:l => fxPulse(l, '#bdf2ad', 1), CIVIL:l => fxPulse(l, '#98ebe2', 1), COMMAND:l => fxPulse(l, '#ffe28a', 1), CURE:l => fxPulse(l, '#86ffc0', 2), LOGISTICS:l => fxPulse(l, '#f0dea8', 1) };
+function fxCard(type, id, loc) {
+  if (type === 'AIR') { const kind = ['apache', 'cas', 'combined_arms', 'air_assault'].includes(id) ? 'strike' : ['airbridge', 'mass_vax'].includes(id) ? 'lift' : id === 'medevac' ? 'medevac' : 'fly'; return fxHelo(loc, loc, kind); }
+  if (id === 'thermobaric' || id === 'firebreak') return fxFlash(loc, 6, true);
+  (CARD_FX[type] || (() => {}))(loc);
+}
+function afterSitrep() {
+  if (fxBusy) return; closeModal();
+  if (fxQ.length && !RMO()) { const q = fxQ; fxQ = []; fxBusy = true; render(); q.forEach((f, i) => setTimeout(f, 80 + i * 160));
+    let doneBeat = false; const fin = () => { if (doneBeat) return; doneBeat = true; clearTimeout(tm); document.removeEventListener('pointerdown', fin, true); document.removeEventListener('keydown', fin, true); fxBusy = false; flow(); TUT.ev('sitrep'); };
+    const tm = setTimeout(fin, 1250); setTimeout(() => { document.addEventListener('pointerdown', fin, true); document.addEventListener('keydown', fin, true); }, 60); }
+  else { fxQ = []; flow(); TUT.ev('sitrep'); }
+}
+
+// ------------------------------------------------------------- first-run tutorial (coach marks)
+const TUT = (function () {
+  const KEY = 'ecb_tut';
+  const noModal = () => !$('#modal') && !!$('#app') && !fxBusy;
+  const STEPS = [
+    { id:'crisis', when:() => !!(S && S.crisis && $('#modal .opts')), target:'#modal .opts', place:'top', title:'A crisis', text:'Most weeks start with a crisis. Pick one of the choices. Each one says what it costs and what it does.', until:'crisis' },
+    { id:'map', when:noModal, target:'.mapwrap', title:'The world map', text:'Red regions are infected. The blue marker is your brigade. Tap any region to see it up close.', next:'Next' },
+    { id:'hand', when:noModal, target:'#hand', title:'Your orders', text:'These cards are your orders for the week. Tap one to play it. Each card costs Command Points, the amber dots on the left.', until:'card', next:'Skip' },
+    { id:'ato', when:noModal, target:'#b-ato', title:'Air tasking (free)', text:'Once a week your helicopters can fly a mission for free. Tap Air Tasking and pick one.', until:'ato', next:'Skip' },
+    { id:'eng', when:noModal, target:'#b-eng', title:'Engineers (free)', text:'Your engineers can also do one week of building where the brigade is. Tap Engineers and pick a project.', until:'eng', next:'Skip' },
+    { id:'end', when:noModal, target:'#b-end', title:'End the week', text:'When you are done, press End Week. The outbreak spreads, the labs research, and you get a report.', until:'end' },
+    { id:'sitrep', when:() => !!$('#modal #b-cont'), target:'#modal .sit-items', place:'top', title:'Situation report', text:'This is what happened this week: good news in green, bad news in red. Press Continue to see it on the map.', until:'sitrep' },
+    { id:'region', when:noModal, target:'#reg', title:'Region card', text:'This card shows the region you picked. Pick another region on the map to move the brigade there or send a Task Force to guard it.', next:'Next' },
+    { id:'posture', when:noModal, target:'.posture', pre:() => { if (tab !== 'brigade') { tab = 'brigade'; renderSide(); } }, title:'Posture', text:'Posture is what your troops do on their own every week. Assault kills more, Hold stops the spread, Relief saves civilians.', next:'Next' },
+    { id:'dir', when:noModal, target:'#dir', title:'HQ directive', text:'Higher command gives you goals with a deadline. Finish them for a reward and a new card.', next:'Next' },
+    { id:'done', when:noModal, target:null, title:'You are ready', text:'Keep the labs safe until cure research reaches 100%. Finish week 2 on your own. How to Play and these tips are in the Menu any time.', next:'Got it' },
+  ];
+  let step = -1, box = null, hl = null, shownStep = -1;
+  const get = () => { try { return localStorage.getItem(KEY); } catch (e) { return null; } };
+  const put = v => { try { localStorage.setItem(KEY, v); } catch (e) {} };
+  function maybeStart() { const v = get(); if (v === 'done') return; if (v != null && !isNaN(+v)) { step = +v; sync(); return; } if (S && S.turn <= 1) start(false); }
+  function start(replay) { step = replay && !(S && S.crisis && $('#modal .opts')) ? 1 : 0; shownStep = -1; put(String(step)); sync(); }
+  function finish() { step = -1; put('done'); hide(); }
+  function advance() { step++; shownStep = -1; if (step >= STEPS.length) return finish(); put(String(step)); sync(); }
+  function ev(name) { if (step < 0) return; const st = STEPS[step]; if (st && st.until === name) advance(); }
+  function hide() { if (box) box.style.display = 'none'; if (hl) { hl.classList.remove('tut-hl'); hl = null; } }
+  function sync() { requestAnimationFrame(draw); }
+  function draw() {
+    if (step < 0) return hide();
+    const st = STEPS[step]; if (!st || !S) return hide();
+    if (!st.when()) return hide();
+    if (st.pre && shownStep !== step) st.pre();
+    const tgt = st.target ? document.querySelector(st.target) : null;
+    if (!box) { box = document.createElement('div'); box.id = 'tut'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); }
+    if (shownStep !== step) {
+      box.innerHTML = `<div class="tut-k">Tip ${step + 1} of ${STEPS.length}</div><div class="tut-t">${st.title}</div><p>${st.text}</p><div class="tut-b">${st.next ? `<button class="btn sm" id="tut-next">${st.next}</button>` : ''}<button class="tut-skip" id="tut-skip">Skip all tips</button></div><i class="tut-arrow"></i>`;
+      box.querySelector('#tut-skip').onclick = finish; const nb = box.querySelector('#tut-next'); if (nb) nb.onclick = advance;
+      if (tgt && window.innerWidth <= 820) { const r = tgt.getBoundingClientRect(); if (r.top < 60 || r.bottom > window.innerHeight - 60) tgt.scrollIntoView({ block:'center', behavior:'smooth' }); setTimeout(sync, 420); }
+      shownStep = step;
+    }
+    if (hl && hl !== tgt) hl.classList.remove('tut-hl'); hl = tgt; if (hl && st.target !== '.mapwrap') hl.classList.add('tut-hl');
+    box.style.display = 'block';
+    const vw = window.innerWidth, vh = window.innerHeight, bw = Math.min(330, vw - 24); box.style.width = bw + 'px';
+    const bh = box.offsetHeight; const arrow = box.querySelector('.tut-arrow');
+    if (!tgt) { box.style.left = (vw - bw) / 2 + 'px'; box.style.top = Math.max(12, (vh - bh) / 2) + 'px'; arrow.style.display = 'none'; return; }
+    if (st.place === 'top') { const dlg = document.querySelector('#modal .dlg'); const dr = dlg ? dlg.getBoundingClientRect() : null; const wide = dr && dr.left > bw + 24; box.style.left = (wide ? Math.max(12, dr.left - bw - 16) : (vw - bw) / 2) + 'px'; box.style.top = (wide ? Math.max(12, dr.top + 40) : 10) + 'px'; arrow.style.display = 'none'; return; }
+    const r = tgt.getBoundingClientRect(); let top, below;
+    if (st.target === '.mapwrap') { top = Math.max(12, r.top + Math.min(r.height * .55, r.height - bh - 12)); below = null; }
+    else if (r.bottom + bh + 18 < vh) { top = r.bottom + 12; below = true; }
+    else if (r.top - bh - 18 > 0) { top = r.top - bh - 12; below = false; }
+    else { top = Math.max(12, vh - bh - 12); below = null; }
+    const cx = Math.min(Math.max(r.left + r.width / 2, 20), vw - 20); const left = Math.min(Math.max(12, cx - bw / 2), vw - bw - 12);
+    box.style.left = left + 'px'; box.style.top = top + 'px';
+    if (below === null) arrow.style.display = 'none'; else { arrow.style.display = 'block'; arrow.className = 'tut-arrow ' + (below ? 'up' : 'down'); arrow.style.left = Math.min(Math.max(14, cx - left), bw - 14) + 'px'; }
+  }
+  return { start, maybeStart, ev, sync, finish, active:() => step >= 0 };
+})();
+window.addEventListener('scroll', () => TUT.sync(), { passive:true });
 
 // ------------------------------------------------------------- flow
 function save() { if (S && !S.over) put(SAVE_KEY, S); }
@@ -3298,7 +3586,14 @@ function flow() {
 }
 function doEndTurn() {
   if (S.crisis) { showCrisis(); return; }
+  const before = { loc:S.b.loc, tf:S.b.tf && S.b.tf.loc, z:S.regions[S.b.loc].z, tz:S.b.tf ? S.regions[S.b.tf.loc].z : 0, rest:E.REGIONS.filter(r => S.regions[r.id].restored).map(r => r.id) };
   const rep = E.endTurn(S); if (!rep) return;
+  SFX.play(rep.fell.length ? 'alarm' : 'drum'); TUT.ev('end');
+  if (before.z > .002) fxQ.push(() => fxFlash(before.loc, 6));
+  if (before.tf && before.tz > .002) fxQ.push(() => fxFlash(before.tf, 4));
+  for (const id of rep.fell) fxQ.push(() => fxPulse(id, '#ff4a3a', 3));
+  const nowRest = E.REGIONS.filter(r => S.regions[r.id].restored && !before.rest.includes(r.id)).map(r => r.id);
+  if (nowRest.length) { fxQ.push(() => SFX.play('chime')); for (const id of nowRest) fxQ.push(() => fxPulse(id, '#6fe0a0', 3)); }
   pendingSitrep = rep; sel = null; flow();
 }
 function showCrisis() {
@@ -3306,7 +3601,8 @@ function showCrisis() {
   let text = ''; try { text = e.text(S, S.crisis.ctx); } catch (x) { text = ''; }
   const m = openModal(`<div class="crisis-art">${ART.svg(S.crisis.id, e.kind, '', true)}</div><div class="dlg-h"><div><div class="k" style="color:${col}">Crisis · ${e.kind} · Week ${S.turn}</div><h2>${esc(e.title)}</h2></div></div>
     <div class="dlg-b"><p>${text}</p><div class="opts">${opts.map(o => `<button class="opt" data-i="${o.i}" ${o.ok ? '' : 'disabled'}><span class="num">${o.i + 1}</span><span><span class="ol">${esc(o.label)}</span><div class="of">${esc(o.fx)}${o.ok ? '' : ` <span class="why">Unavailable: ${esc(o.why)}</span>`}</div></span></button>`).join('')}</div></div>`, '', k => { const n = +k - 1; const o = opts[n]; if (o && o.ok) choose(n); });
-  const choose = i => { const r = E.resolveCrisis(S, i); if (r.ok) toast(r.msg); flow(); };
+  const key = S.turn + ':' + S.crisis.id; if (crisisSnd !== key) { crisisSnd = key; SFX.play('radio'); }
+  const choose = i => { const r = E.resolveCrisis(S, i); if (r.ok) { toast(r.msg); SFX.play('click'); TUT.ev('crisis'); } flow(); };
   for (const b of $$('.opt', m)) b.onclick = () => choose(+b.dataset.i);
   if (!opts.some(o => o.ok)) { S.crisis = null; flow(); }
 }
@@ -3334,11 +3630,11 @@ function showSitrep() {
       ${rep.phase === 'restore' ? `<div class="stat"><span class="lbl">Regions restored</span><span class="v mono good">${rep.restoredAfter}/${E.REGIONS.length}${rep.restoredAfter > rep.restoredBefore ? ` <small>+${rep.restoredAfter - rep.restoredBefore}</small>` : ''}</span></div>` : `<div class="stat"><span class="lbl">Cure research</span><span class="v mono good">+${dr.toFixed(1)}%</span></div>`}
       <div class="stat"><span class="lbl">Brigade</span><span class="v mono ${dp < 0 ? 'bad' : ''}">${dp <= 0 ? '−' : '+'}${Math.abs(dp)}</span></div></div>
       <div class="sit-items">${items.map(i => `<div class="${i.k}">${esc(i.t)}</div>`).join('') || '<div>A quiet week.</div>'}</div></div>
-    <div class="dlg-f"><button class="btn" id="b-cont">Continue</button></div>`, '', k => { if (k === 'Enter' || k === ' ') flow(); });
-  $('#b-cont', m).onclick = flow;
+    <div class="dlg-f"><button class="btn" id="b-cont">Continue</button></div>`, '', k => { if (k === 'Enter' || k === ' ') afterSitrep(); });
+  $('#b-cont', m).onclick = afterSitrep;
 }
 function showReward() {
-  const pr = S.pendingReward;
+  const pr = S.pendingReward; if (rewardSnd !== S.turn) { rewardSnd = S.turn; SFX.play('chime'); }
   const m = openModal(`<div class="dlg-h"><div><div class="k" style="color:var(--good)">${esc(pr.reason)}</div><h2>Choose a new order</h2></div></div>
     <div class="dlg-b"><p class="note" style="font-size:14px">Higher command is sending reinforcements and new capabilities. Pick one card to add to your deck.</p><div class="rewards">${pr.options.map(id => cardHTML(id, { cls:'big', attr:`data-id="${id}"` })).join('')}</div></div>
     <div class="dlg-f"><button class="btn ghost" id="b-up">Upgrade a card instead</button><button class="btn ghost" id="b-rm">Remove a card instead</button><button class="btn ghost" id="b-sup">Take a supply drop (+15 supply, +10 ammo)</button></div>`, 'wide');
@@ -3399,11 +3695,13 @@ function showMenu() {
     <div class="dlg-b"><div class="opts">
       <button class="opt" id="m-how"><span class="num">?</span><span><span class="ol">How to play</span><div class="of">Rules, cards and win conditions.</div></span></button>
       <button class="opt" id="m-film"><span class="num">▶</span><span><span class="ol">Replay the opening cinematic</span><div class="of">Watch this run's intro again.</div></span></button>
+      <button class="opt" id="m-tut"><span class="num">i</span><span><span class="ol">Show the tutorial tips</span><div class="of">Walk through the basics again, step by step.</div></span></button>
+      <button class="opt" id="m-snd"><span class="num">♪</span><span><span class="ol">Sound: ${SFX.isMuted() ? 'off' : 'on'}</span><div class="of">Gunfire, helicopters, radio and alarms. Tap to switch.</div></span></button>
       <button class="opt" id="m-oob"><span class="num">≡</span><span><span class="ol">Brigade order of battle</span><div class="of">What the ECB is made of.</div></span></button>
       <button class="opt" id="m-title"><span class="num">⌂</span><span><span class="ol">Title screen</span><div class="of">Your run stays saved. Continue it from the title screen.</div></span></button>
       <button class="opt" id="m-quit"><span class="num">×</span><span><span class="ol">Abandon this run</span><div class="of">Ends the run now and counts it as a loss.</div></span></button>
     </div></div>`);
-  $('#b-x', m).onclick = closeModal; $('#m-how', m).onclick = showHowTo; $('#m-film', m).onclick = () => { closeModal(); CINE.play(S, enterGame); }; $('#m-oob', m).onclick = showOOB; $('#m-title', m).onclick = showTitle;
+  $('#b-x', m).onclick = closeModal; $('#m-how', m).onclick = showHowTo; $('#m-film', m).onclick = () => { closeModal(); CINE.play(S, enterGame); }; $('#m-oob', m).onclick = showOOB; $('#m-tut', m).onclick = () => { closeModal(); TUT.start(true); }; $('#m-snd', m).onclick = () => { SFX.setMuted(!SFX.isMuted()); sndBtn(); $('#m-snd .ol', m).textContent = 'Sound: ' + (SFX.isMuted() ? 'off' : 'on'); if (!SFX.isMuted()) SFX.play('click'); }; $('#m-title', m).onclick = showTitle;
   $('#m-quit', m).onclick = () => { $('#m-quit', m).querySelector('.ol').textContent = 'Tap again to confirm'; $('#m-quit', m).onclick = () => { S.over = { win:false, title:'Run Abandoned', text:'You handed over command.' }; S.over.score = E.score(S); flow(); }; };
 }
 function howHTML() {
@@ -3427,6 +3725,7 @@ function howHTML() {
     <li><b>Seasons and chokepoints:</b> winter slows the infected in cold regions. Five regions hold strategic chokepoints (anchor icons): Panama, Suez, Malacca, Hormuz and the Bosporus. Each one that falls shrinks your resupply.</li>
     <li><b>Burn cards</b> you don't want with the flame button on a card in your hand (tap it twice). The card leaves your deck for good and you get back half its cost in Command Points right away. Halves are saved until they add up to a whole point, so burning two 1-cost cards gives you 1 point. Your deck can't go below ${E.MIN_DECK} cards.</li>
     <li><b>Shortcuts:</b> keys 1–9 play cards or pick crisis choices, A opens air tasking, G opens engineers, E ends the week.</li>
+    <li><b>Sound and tips:</b> the speaker button at the top turns sound on or off. The Menu can replay the tutorial tips.</li>
   </ol></div>`;
 }
 function showHowTo() { const m = openModal(`<div class="dlg-h"><h2>How to play</h2><button class="hbtn" id="b-x">Close</button></div><div class="dlg-b">${howHTML()}</div>`, 'wide'); $('#b-x', m).onclick = () => S && $('#app') ? closeModal() : closeModal(); }
@@ -3488,8 +3787,10 @@ function showTitle() {
 }
 function introOn() { try { return localStorage.getItem('ecb_intro') !== '0'; } catch (e) { return true; } }
 function startGame(opts) { S = E.newGame(opts); pendingSitrep = null; sel = null; tab = 'brigade'; view = { x:0, y:0, w:MD.W, h:MD.H }; closeModal(); if (introOn() && !opts.noIntro) CINE.play(S, enterGame); else enterGame(); }
-function enterGame() { closeModal(); shell(); flow(); }
+function enterGame() { closeModal(); shell(); flow(); TUT.maybeStart(); }
 
+document.addEventListener('pointerdown', () => SFX.unlock(), { once:true });
+window.addEventListener('resize', () => TUT.sync());
 // ------------------------------------------------------------- keys
 document.addEventListener('keydown', e => {
   if (CINE.active()) { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); CINE.stop(); } return; }

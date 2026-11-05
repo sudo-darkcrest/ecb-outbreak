@@ -85,6 +85,7 @@ function spreadRing(ids, from, color, delay) {
 
 // ---------------------------------------------------------------- the film
 function play(S, onDone) {
+  try { muted = localStorage.getItem('ecb_mute') === '1'; } catch (e) {}
   stop(true);
   done = onDone; audioOn(); drone();
   const pzN = E.RD[S.pz].name, start = E.RD[S.b.loc].name, cmd = E.CMD[S.cmd];
