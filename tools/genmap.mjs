@@ -46,7 +46,13 @@ for (const f of fc.features) {
   const n = f.properties.name; const mp = toMP(f.geometry);
   if (n==='Antarctica' || n==='Fr. S. Antarctic Lands') continue;
   if (n==='United States of America') { geoms.USW.push(pc.intersection(mp, box(-180,-100))); geoms.USE.push(pc.intersection(mp, box(-100,0))); continue; }
-  if (n==='Russia') { geoms.RUS.push(pc.intersection(mp, box(20,60))); geoms.SIB.push(pc.difference(mp, box(20,60))); continue; }
+  if (n==='Russia') {
+    // Kaliningrad goes to Central Europe and Crimea to Eastern Europe; the rest is split at 60°E
+    const inBox = (poly, x0, x1, y0, y1) => poly[0].every(([x, y]) => x >= x0 && x <= x1 && y >= y0 && y <= y1);
+    const kal = mp.filter(p => inBox(p, 19, 23.5, 54, 56)), cri = mp.filter(p => inBox(p, 32, 36.8, 44, 46.4));
+    const rest = mp.filter(p => !kal.includes(p) && !cri.includes(p));
+    if (kal.length) geoms.CEU.push(kal); if (cri.length) geoms.EEU.push(cri);
+    geoms.RUS.push(pc.intersection(rest, box(20,60))); geoms.SIB.push(pc.difference(rest, box(20,60))); continue; }
   if (n==='France') { geoms.WEU.push(pc.intersection(mp, box(-20,40))); geoms.SAN.push(pc.intersection(mp, box(-60,-40))); continue; }
   const k = byName[n]; if (!k) { unassigned.push(n); continue; }
   geoms[k].push(mp);

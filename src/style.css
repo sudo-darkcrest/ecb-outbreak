@@ -456,3 +456,12 @@ b{color:#fff;font-weight:700}
 .mapcol.reg-left .ov-region{right:auto;left:10px}
 .mapcol.reg-left .ov-legend{left:auto;right:10px}
 @media (max-width:820px){ .reg-tog{display:none} }
+
+/* ending films */
+.s-end{font-family:var(--f-display);font-size:clamp(26px,5.4vw,64px);letter-spacing:.2em;margin-left:.2em;text-align:center;padding:0 16px;animation:spreadl 1.6s .4s ease-out both}
+.end-win .s-ecb{color:#7fd6a0}
+.end-win .s-sub{color:#9fe3bb}
+.c-mem{list-style:none;padding:0;margin:4px 0 0;display:flex;flex-direction:column;gap:5px;font-size:clamp(11px,1.3vw,15px);letter-spacing:.1em;color:#d7e4df}
+.c-mem li{animation:slidein .45s ease-out both}
+.c-mem li.all{color:var(--amber);margin-top:4px}
+.end-win .ticker{background:#1f6b46}

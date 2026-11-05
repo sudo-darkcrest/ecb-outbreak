@@ -30,11 +30,11 @@ const REGIONS = [
   { id:'BRA', name:'Brazil',                   pop:212,  wealth:.55, dens:1.1, clim:'hot',       hub:.6, base:false, a:[354,292] },
   { id:'SCO', name:'Southern Cone',            pop:76,   wealth:.60, dens:.90, clim:'temperate', hub:.4, base:false, a:[326,368] },
   { id:'WEU', name:'Western Europe',           pop:241,  wealth:.95, dens:1.1, clim:'temperate', hub:1,  base:true,  a:[498,117], lab:'Porton Down' },
-  { id:'CEU', name:'Central Europe',           pop:162,  wealth:.85, dens:1.0, clim:'temperate', hub:.8, base:true,  a:[537,96] },
+  { id:'CEU', name:'Central Europe',           pop:163,  wealth:.85, dens:1.0, clim:'temperate', hub:.8, base:true,  a:[537,96] },
   { id:'SEU', name:'Mediterranean & Balkans',  pop:111,  wealth:.70, dens:1.0, clim:'temperate', hub:.7, base:false, a:[559,118] },
   { id:'NOR', name:'Nordic & Baltic',          pop:34,   wealth:.95, dens:.60, clim:'cold',      hub:.5, base:false, a:[541,57] },
-  { id:'EEU', name:'Eastern Europe',           pop:49,   wealth:.50, dens:.80, clim:'cold',      hub:.3, base:false, a:[575,96] },
-  { id:'RUS', name:'Western Russia',           pop:110,  wealth:.60, dens:1.0, clim:'cold',      hub:.6, base:false, a:[604,76] },
+  { id:'EEU', name:'Eastern Europe',           pop:51,   wealth:.50, dens:.80, clim:'cold',      hub:.3, base:false, a:[575,96] },
+  { id:'RUS', name:'Western Russia',           pop:107,  wealth:.60, dens:1.0, clim:'cold',      hub:.6, base:false, a:[604,76] },
   { id:'SIB', name:'Siberia & Far East',       pop:34,   wealth:.50, dens:.40, clim:'cold',      hub:.2, base:false, a:[756,62], lab:'VECTOR Koltsovo' },
   { id:'MDE', name:'Middle East',              pop:396,  wealth:.60, dens:1.1, clim:'hot',       hub:.9, base:true,  a:[626,163] },
   { id:'NAF', name:'North Africa',             pop:222,  wealth:.45, dens:1.1, clim:'hot',       hub:.5, base:false, a:[528,168] },
@@ -1339,7 +1339,7 @@ function endTurn(s) {
   // battalion commanders can fall when their unit takes heavy losses
   for (const k of BNS) {
     if (before[k] - b.u[k] > .035 && rnd(s) < .22) {
-      const v = b.vet[k]; const old = v.cdr.name; v.cdr = newCdr(s); v.xp *= .6; s.stats.cdrLost = (s.stats.cdrLost || 0) + 1; add(s,'morale',-3);
+      const v = b.vet[k]; const old = v.cdr.name; (s.stats.fallenCdrs = s.stats.fallenCdrs || []).push({ name:old, unit:UNITS[k].name, week:s.turn }); v.cdr = newCdr(s); v.xp *= .6; s.stats.cdrLost = (s.stats.cdrLost || 0) + 1; add(s,'morale',-3);
       rep.items.push({ k:'bad', t:`${old}, commanding the ${UNITS[k].name}, was killed in action. ${v.cdr.name} (${TRAITS[v.cdr.trait].name}) takes command.` });
     }
     const tr = traitOf(s, k); if (tr.regen) heal(s, [k], tr.regen); if (tr.morale) add(s,'morale', tr.morale); if (tr.supply) add(s,'supply', tr.supply);

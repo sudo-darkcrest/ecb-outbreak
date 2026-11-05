@@ -1,4 +1,4 @@
-/* ECB: OUTBREAK — opening cinematic. Built from the current run: origin, pathogen, commander, staging base. */
+/* ECB: OUTBREAK — opening and ending films. Built from the current run: origin, pathogen, commander, staging base, and how it ended. */
 const CINE = (function () {
 'use strict';
 const E = ECB, MD = MAPDATA;
@@ -209,6 +209,152 @@ function stop(silent) {
   if (r) { r.classList.add('out'); setTimeout(() => r.remove(), silent ? 0 : 600); }
   if (!silent) { audioOff(); const d = done; done = null; if (d) setTimeout(d, silent ? 0 : 250); }
 }
+// ================================================================ ending films
+// One film per kind of ending, built from how the run actually went. Each kind has a few versions.
+const ENDINGS = {
+  cure:      { win:true,  slam:'THE LINE HELD',     open:[['cure','CURE'],['cine_lab','RESEARCH']], amb:'heart',
+    lines:[['At {lab}, the last trial comes back clean.', 'The cure for {path} works.'], ['The night shift at {lab} stops talking and starts crying.', 'It works. It actually works.']],
+    proj:'CURE DISTRIBUTION · PLAN', next:['DAY +30 · FIRST DOSES', 'DAY +90 · WORLDWIDE'],
+    panels:[['airbridge','AIR','Cure shipments leave {lab} for every region still standing.'], ['mass_vax','CIVIL','Dose stations open in stadiums, schools and churches.'], ['rally','COMMAND','Host-nation forces take back their cities, block by block.'], ['cure_aerosol','CURE','Aircraft seed the cure over the worst-hit zones.'], ['restore_gov','CIVIL','The first city councils meet again.']],
+    epi:['The brigade comes home. Not all of it.', 'The war is over. The rebuilding has just started.', 'Somewhere, a lab tech sleeps for the first time in months.'] },
+  restored:  { win:true,  slam:'THE WORLD RESTORED', open:[['restore_gov','CIVIL'],['cure','CURE']], amb:'wind',
+    lines:[['Week {week}. The last region reports in.', 'Every region on Earth is restored.'], ['The final quarantine line comes down at dawn.', '{path} is history.']],
+    proj:'RESTORATION · COMPLETE', next:['ALL REGIONS · RESTORED', 'CURE · WORLDWIDE'],
+    panels:[['restore_gov','CIVIL','Governments are back in their capitals.'], ['field_cure','CURE','The last infected are cured in field clinics.'], ['rally','COMMAND','Host-nation forces stand down, one country at a time.'], ['convoy','LOGISTICS','Supply convoys carry food instead of ammunition.']],
+    epi:['The brigade comes home to a world that is still there.', 'The map is green. The work is done.'] },
+  recovery:  { win:true,  slam:'RECOVERY BEGINS',   open:[['restore_gov','CIVIL'],['field_cure','CURE']], amb:'wind',
+    lines:[['Week {week}. Higher command takes over the recovery.', '{restored} of {regions} regions are restored.'], ['The ECB hands over the last sector.', 'The cure is out. The rest is up to the world.']],
+    proj:'RECOVERY · PROJECTED', next:['YEAR 1 · REBUILDING', 'YEAR 3 · RECOVERED'],
+    panels:[['field_cure','CURE','Field clinics keep curing the last infected.'], ['restore_gov','CIVIL','Governments are back in their capitals.'], ['convoy','LOGISTICS','Supply convoys carry food instead of ammunition.'], ['rally','COMMAND','Host-nation forces take it from here.']],
+    epi:['The brigade comes home. The world will take a while longer.', 'Not every region was saved. Enough were.'] },
+  fallen:    { win:false, slam:'LIGHTS OUT',         open:[['signal','INTEL'],['horde','COMBAT']], amb:'static',
+    lines:[['The last emergency broadcast loops for three days.', 'Then it stops.'], ['Fewer than one in five people are left.', 'There is no one left to cure.']],
+    proj:'NO CURE · PROJECTED', next:['DAY +30 · PROJECTED', 'DAY +90 · PROJECTED'],
+    panels:[['horde','COMBAT','The bitten outnumber the living in every city.'], ['refugees','CIVIL','The last survivors take to the roads with nowhere to go.'], ['cult','CIVIL','The few who are left stop waiting for rescue.'], ['grid','LOGISTICS','The last lights on the night side of the planet go out.']],
+    epi:['Somewhere, a radio is still on.', 'Nobody is coming.'] },
+  spent:     { win:false, slam:'LAST STAND',         open:[['helo_down','AIR'],['horde','COMBAT']], amb:'static',
+    lines:[['The Expeditionary Combat Brigade can no longer field a fighting force.', 'The survivors fall back to the last landing zone.'], ['Week {week}. The brigade has nothing left to send.', 'The last helicopters lift off without them.']],
+    proj:'WITHOUT THE ECB · PROJECTED', next:['DAY +30 · PROJECTED', 'DAY +90 · PROJECTED'],
+    panels:[['helo_down','AIR','The aviation group is grounded for good.'], ['horde','COMBAT','The lines the brigade held break one by one.'], ['lab_siege','RESEARCH','The labs lose their last guards.'], ['refugees','CIVIL','Host-nation forces fight on alone.']],
+    epi:['They held as long as anyone could.', 'The host nations fight on without them.'] },
+  mutiny:    { win:false, slam:'GOING HOME',         open:[['mutiny','COMMAND'],['inquiry','COMMAND']], amb:'wind',
+    lines:[['Week {week}. The brigade stops following orders.', 'Soldiers are walking home.'], ['The battalions refuse to move out.', 'Nobody fires on them. Nobody stops them.']],
+    proj:'WITHOUT THE ECB · PROJECTED', next:['DAY +30 · PROJECTED', 'DAY +90 · PROJECTED'],
+    panels:[['mutiny','COMMAND','Campfires burn where the battalions used to stand.'], ['refugees','CIVIL','Soldiers join the refugees on the roads.'], ['horde','COMBAT','The host nations hold the line alone.']],
+    epi:['They were asked for too much, for too long.', 'Somewhere, the host nations are still fighting.'] },
+  relieved:  { win:false, slam:'RELIEVED',           open:[['inquiry','COMMAND'],['mutiny','COMMAND']], amb:'static',
+    lines:[['Higher command has relieved you.', 'A new commander arrives at dawn.'], ['Week {week}. The board takes eleven minutes.', 'Your replacement is already on the plane.']],
+    proj:'COMMAND · HANDED OVER', next:['WEEK +1 · HANDOVER', 'WEEK +8 · PROJECTED'],
+    panels:[['inquiry','COMMAND','The inquiry wants answers you do not have.'], ['convoy','LOGISTICS','The brigade rolls on under someone else.'], ['horde','COMBAT','The outbreak does not wait for the paperwork.']],
+    epi:['The war goes on without you.', 'Someone else will have to finish this.'] },
+  labs:      { win:false, slam:'NO CURE',            open:[['lab_siege','RESEARCH'],['cine_lab','RESEARCH']], amb:'klaxon',
+    lines:[['The last research lab is overrun.', 'There will be no cure.'], ['{lab} goes dark at {time}.', 'It was the last one.']],
+    proj:'NO CURE · PROJECTED', next:['DAY +30 · PROJECTED', 'DAY +90 · PROJECTED'],
+    panels:[['lab_siege','RESEARCH','The research data burns with the buildings.'], ['horde','COMBAT','The infected spread with nothing left to stop them.'], ['signal','INTEL','The emergency broadcasts stop one by one.']],
+    epi:['Somewhere, a lab notebook is still open on a desk.', 'Without a cure, all anyone can do is hold.'] },
+};
+function endKind(o) {
+  const t = o.title;
+  if (t === 'Cure Synthesized') return 'cure';
+  if (t === 'The World Restored') return 'restored';
+  if (o.win || ['Restoration Complete', 'Brigade Spent', 'The Brigade Goes Home', 'Relieved After the Cure'].includes(t)) return 'recovery';
+  return { 'Humanity Has Fallen':'fallen', 'Brigade Combat Ineffective':'spent', 'Mutiny':'mutiny', 'Relieved of Command':'relieved', 'The Last Lab Is Gone':'labs' }[t] || null;
+}
+const hasEnding = S => !!(S && S.over && endKind(S.over));
+function weekDate(w) { const d = new Date(Date.UTC(2027, 3, 12) + (w - 1) * 7 * 864e5); return `${String(d.getUTCDate()).padStart(2,'0')} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`; }
+function endFill(rs) {
+  if (rs.restored) return '#3f9a6a'; if (rs.fallen) return '#3a1012'; if (rs.stab > 0) return '#5a7fb0';
+  if (rs.z <= 0) return '#1d2f2b'; if (rs.z < .001) return '#7a6a2a'; if (rs.z < .02) return '#b06a26'; if (rs.z < .1) return '#c2482c'; return '#8e2a20';
+}
+function ending(S, onDone) {
+  const kind = endKind(S.over); if (!kind) { if (onDone) onDone(); return; }
+  try { muted = localStorage.getItem('ecb_mute') === '1'; } catch (e) {}
+  stop(true); done = onDone; audioOn(); drone();
+  const D = ENDINGS[kind], o = S.over, cmd = E.CMD[S.cmd];
+  // pick a version from the run's seed
+  let h = 2166136261 >>> 0; const str = String(S.seed) + ':end'; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  const r = () => { h ^= h << 13; h >>>= 0; h ^= h >>> 17; h ^= h << 5; h >>>= 0; return h / 4294967296; };
+  const pick = a => a[Math.floor(r() * a.length)];
+  const labs = E.activeLabs(S); const lab = (labs[0] || S.labs[0] || { name:'the lab' }).name;
+  const N = E.REGIONS.length, fallen = E.fallenCount(S), restored = E.restoredCount(S), stab = E.REGIONS.filter(x => S.regions[x.id].stabbed).length;
+  const sv = E.survivors(S), svp = Math.round(sv / E.START_POP * 100);
+  const fill = t => t.replace(/\{lab\}/g, lab).replace(/\{path\}/g, S.path.name).replace(/\{week\}/g, S.turn).replace(/\{restored\}/g, restored).replace(/\{regions\}/g, N).replace(/\{time\}/g, String(Math.floor(r() * 24)).padStart(2, '0') + ':' + String(Math.floor(r() * 60)).padStart(2, '0'));
+  const art = pick(D.open), lines = pick(D.lines).map(fill), epi = pick(D.epi);
+  const pool = D.panels.slice(); const panels = []; while (panels.length < 3 && pool.length) panels.push(pool.splice(Math.floor(r() * pool.length), 1)[0]);
+  const cdrs = (S.stats.fallenCdrs || []).slice(-4);
+  const kia = S.stats.kia || 0;
+  const rec = [o.win ? 'THE RECORD' : 'WHAT WAS SAVED',
+    `${S.turn} WEEKS IN THE FIELD`,
+    `SURVIVORS ${M(sv)} · ${svp}% OF THE WORLD`,
+    S.phase === 'restore' ? `REGIONS RESTORED ${restored} OF ${N}` : `REGIONS STILL STANDING ${N - fallen} OF ${N}`,
+    `INFECTED DESTROYED ${M(S.stats.kills || 0)} BY THE ECB · ${M(S.stats.hnKills || 0)} BY HOST FORCES`,
+    stab ? `REGIONS STABILIZED ${stab}` : `CIVILIANS SAVED ${M(S.stats.saved || 0)}`,
+    `BRIGADE LOSSES ${kia.toLocaleString()}`];
+  root = document.createElement('div'); root.className = 'cine end-' + (D.win ? 'win' : 'loss') + (RM() ? ' rm' : ''); root.id = 'cine'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'Ending film');
+  let map = `<svg class="cine-map" viewBox="0 0 ${MD.W} ${MD.H}" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><path d="${MD.outline}" fill="#070d10" stroke="#16242a"/><path d="${MD.grat}" fill="none" stroke="#10191d" stroke-width=".5"/>`;
+  for (const x of E.REGIONS) map += `<path d="${MD.regions[x.id].d}" data-id="${x.id}" class="cm-r" fill="${endFill(S.regions[x.id])}" stroke="#05090b" stroke-width=".6"/>`;
+  map += `<g id="cm-arcs"></g></svg>`;
+  const ticker = `${D.win ? 'CONFIRMED' : 'LATEST'} · WEEK ${S.turn} · ${esc(S.path.code)} “${esc(S.path.name.toUpperCase())}” · SURVIVORS ${M(sv)} · REGIONS FALLEN ${fallen} OF ${N}${S.phase === 'restore' ? ` · REGIONS RESTORED ${restored}` : ''} · LABS ACTIVE ${labs.length} · HOST-NATION FORCES DESTROYED ${M(S.stats.hnKills || 0)} INFECTED · `;
+  root.innerHTML = `
+    <div class="cs" id="cs1"><div class="cs-art dim">${ART.svg(art[0], art[1], 'cine-art kb', true)}</div>${D.win ? '' : '<div class="alarm"></div>'}
+      <div class="cs-text center"><div class="c-meta mono" id="t1a"></div><div class="c-big" id="t1b"></div><p class="c-line" id="t1c"></p><p class="c-line" id="t1d"></p></div></div>
+    <div class="cs" id="cs2">${map}<div class="c-day mono" id="t2a"></div><div class="c-sub mono" id="t2b"></div><div class="proj-stamp mono" id="stamp">${esc(D.proj)}</div><div class="ticker"><span id="tick">${ticker}${ticker}</span></div></div>
+    <div class="cs" id="cs3"><div class="cs-art" id="p3"></div><div class="cs-text low"><div class="c-tag mono" id="t3t"></div><p class="c-cap" id="t3"></p></div></div>
+    <div class="cs" id="cs4"><div class="cs-art dim" id="p4">${ART.svg(D.win ? 'cine_home' : 'cine_memorial', D.win ? 'CIVIL' : 'COMMAND', 'cine-art kb', true)}</div><div class="cs-text low left"><ul class="c-list" id="t4b"></ul></div></div>
+    <div class="cs" id="cs5"><div class="dossier"><div class="c-meta mono">${kia || cdrs.length ? 'IN MEMORY' : 'COMMANDING OFFICER'}</div>${kia || cdrs.length ? `<ul class="c-mem mono" id="t5m"></ul>` : ''}<div class="c-rule"></div><div class="c-name" id="t5a"></div><div class="c-meta mono" id="t5b"></div><p class="c-orders" id="t5d"></p></div></div>
+    <div class="cs" id="cs6"><div class="slam"><div class="s-ecb">ECB</div><div class="s-end">${esc(D.slam)}</div><div class="s-sub mono">${esc(o.title.toUpperCase())} · SCORE ${(o.score || 0).toLocaleString()}</div></div></div>
+    <div class="bars"></div><div class="grain"></div>
+    <div class="cine-ui"><button id="cine-mute" class="cine-btn">${muted ? 'Sound off' : 'Sound on'}</button><button id="cine-skip" class="cine-btn">Skip ›</button></div>`;
+  document.body.appendChild(root);
+  root.querySelector('#cine-skip').onclick = () => stop();
+  root.querySelector('#cine-mute').onclick = e => { setMuted(!muted); e.target.textContent = muted ? 'Sound off' : 'Sound on'; };
+  setTimeout(() => root && root.querySelector('#cine-skip').focus({ preventScroll:true }), 50);
+  const T = id => root && root.querySelector('#' + id);
+  // 1 · the moment it ended
+  show('cs1'); const [ambF, ambEvery] = AMB[D.amb] || AMB.static; ambF(); const hb = ambEvery ? setInterval(() => root && ambF(), ambEvery) : 0; if (hb) timers.push(hb);
+  at(400, () => type(T('t1a'), `${weekDate(S.turn)} · WEEK ${S.turn}`, 38, true));
+  at(1500, () => type(T('t1b'), o.title.toUpperCase(), 22, true));
+  at(2900, () => type(T('t1c'), lines[0], 46, true));
+  at(4600, () => type(T('t1d'), lines[1], 46, true));
+  // 2 · the world as it is, then what comes next
+  at(7000, () => { clearInterval(hb); hide('cs1'); show('cs2'); staticBurst(.35); type(T('t2a'), `WEEK ${S.turn} · TODAY`, 24); });
+  at(7800, () => type(T('t2b'), D.win ? `${N - fallen} OF ${N} REGIONS STILL STANDING` : `${fallen} OF ${N} REGIONS LOST`, 44));
+  const setDay = (t, sub) => { const d = T('t2a'), b = T('t2b'); if (d) d.textContent = t; if (b && sub != null) b.textContent = sub; };
+  const ids = E.REGIONS.map(x => x.id);
+  const wave = (list, color, t0) => list.forEach((id, i) => at(t0 + i * 90, () => { const pth = root && root.querySelector(`.cm-r[data-id="${id}"]`); if (pth) pth.setAttribute('fill', color); if (i % 4 === 0) noise(.08, 'bandpass', 900 + i * 40, .06); }));
+  at(9400, () => { const st = T('stamp'); if (st) st.classList.add('on'); thump(0, 70, 40, .5, .3); setDay(D.next[0], ''); });
+  if (D.win) {
+    const labIds = labs.map(l => l.region);
+    const first = ids.filter(id => !S.regions[id].fallen && !S.regions[id].restored).sort((a, b) => (labIds.includes(b) ? 1 : 0) - (labIds.includes(a) ? 1 : 0) || S.regions[a].z - S.regions[b].z);
+    wave(first, '#3f9a6a', 9700);
+    at(11800, () => setDay(D.next[1]));
+    wave(ids.filter(id => S.regions[id].fallen), '#2f7a54', 12000);
+  } else {
+    const order = ids.filter(id => !S.regions[id].fallen).sort((a, b) => S.regions[b].z - S.regions[a].z);
+    wave(order.slice(0, Math.ceil(order.length / 2)), '#8e2a20', 9700);
+    at(11800, () => setDay(D.next[1]));
+    wave(order.slice(Math.ceil(order.length / 2)), '#3a1012', 12000);
+  }
+  // 3 · what happens next
+  panels.forEach(([k, kd, txt], i) => at(14800 + i * 2700, () => {
+    if (!root) return; if (i === 0) { hide('cs2'); show('cs3'); }
+    const p = T('p3'); p.innerHTML = ART.svg(k, kd, 'cine-art kb', true); D.win ? tone(0, 523 + i * 131, .9, .06) : staticBurst(.22);
+    T('t3t').textContent = D.win ? ['THE FIRST WEEK', 'THE FIRST MONTH', 'THE FIRST YEAR'][i] : ['THE FIRST WEEK', 'THE FIRST MONTH', 'AFTER THAT'][i]; type(T('t3'), fill(txt), 50);
+  }));
+  // 4 · the record
+  at(23200, () => { hide('cs3'); show('cs4'); if (D.win) riser(3.6); });
+  rec.forEach((t, i) => at(23500 + i * 600, () => { const ul = T('t4b'); if (!ul) return; const li = document.createElement('li'); li.textContent = t; ul.appendChild(li); thump(0, 140, 90, .22, .12); }));
+  // 5 · in memory, and the commander
+  at(28400, () => { hide('cs4'); show('cs5'); staticBurst(.15);
+    const ul = T('t5m'); if (ul) { cdrs.forEach((c, i) => at(i * 450, () => { if (!root) return; const li = document.createElement('li'); li.textContent = `${c.name.toUpperCase()} · ${c.unit.toUpperCase()} · WEEK ${c.week}`; ul.appendChild(li); }));
+      at(cdrs.length * 450 + 200, () => { if (!root || !kia) return; const li = document.createElement('li'); li.className = 'all'; li.textContent = `AND ${kia.toLocaleString()} SOLDIERS OF THE EXPEDITIONARY COMBAT BRIGADE`; ul.appendChild(li); }); } });
+  at(30600, () => type(T('t5a'), cmd.name, 30, true));
+  at(31800, () => type(T('t5b'), `"${cmd.title.toUpperCase()}" · ${E.DIFFS[S.diff].name.toUpperCase()} · ${S.turn} WEEKS`, 40));
+  at(32900, () => type(T('t5d'), epi, 42, true));
+  // 6 · title
+  at(36400, () => { hide('cs5'); show('cs6'); boom(); if (droneNodes) droneNodes.g.gain.setTargetAtTime(.25, ac.currentTime, .4); });
+  at(40400, () => stop());
+}
 const active = () => !!root;
-return { play, stop, active, scenario };
+return { play, stop, active, scenario, ending, hasEnding };
 })();

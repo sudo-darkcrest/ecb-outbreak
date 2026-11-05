@@ -713,7 +713,7 @@ window.addEventListener('scroll', () => TUT.sync(), { passive:true });
 function save() { if (S && !S.over) put(SAVE_KEY, S); }
 function flow() {
   render(); save(); closeModal();
-  if (S.over) return showGameOver();
+  if (S.over) { if (!S.endFilm && introOn() && CINE.hasEnding(S)) { S.endFilm = true; save(); return CINE.ending(S, showGameOver); } return showGameOver(); }
   if (pendingSitrep) return showSitrep();
   if (S.cureChoice) return showCureChoice();
   if (S.pendingReward) return showReward();
@@ -823,8 +823,8 @@ function showGameOver() {
       </div>
       <p class="note">${esc(E.CMD[S.cmd].name)} · ${E.DIFFS[S.diff].name} · seed <span class="mono">${esc(S.seed)}</span> · regions fallen ${E.fallenCount(S)} · directives ${S.stats.directivesWon} won, ${S.stats.directivesLost} failed</p>
       ${unlockedNow ? '<p style="color:var(--amber)">Lt. Gen. Frank Garrison (Hardliner) is now available as a commander.</p>' : ''}</div>
-    <div class="dlg-f"><button class="btn ghost" id="b-look">Look at the map</button><button class="btn ghost" id="b-same">Retry same seed</button><button class="btn" id="b-new">New run</button></div>`);
-  $('#b-look', m).onclick = closeModal;
+    <div class="dlg-f">${CINE.hasEnding(S) ? '<button class="btn ghost" id="b-endfilm">Watch the ending</button>' : ''}<button class="btn ghost" id="b-look">Look at the map</button><button class="btn ghost" id="b-same">Retry same seed</button><button class="btn" id="b-new">New run</button></div>`);
+  $('#b-look', m).onclick = closeModal; const bef = $('#b-endfilm', m); if (bef) bef.onclick = () => { closeModal(); CINE.ending(S, showGameOver); };
   $('#b-same', m).onclick = () => startGame({ cmd:S.cmd, diff:S.diff, seed:S.seed });
   $('#b-new', m).onclick = showTitle;
 }
@@ -866,6 +866,7 @@ function howHTML() {
     <li><b>Burn cards</b> you don't want with the flame button on a card in your hand (tap it twice). The card goes to the discard pile. It stays in your deck and comes back later, but its slot fills with a fresh card next week. To take a card out of your deck for good, use Remove a card on a reward screen.</li>
     <li><b>Shortcuts:</b> keys 1–9 play cards or pick crisis choices, A opens air tasking, G opens engineers, E ends the week.</li>
     <li><b>Sound and tips:</b> the speaker button at the top turns sound on or off. The Menu can replay the tutorial tips.</li>
+    <li><b>Movies:</b> an opening movie plays when a run starts and an ending movie when it ends, different for each kind of win or loss. Turn both off on the title screen. Replay them from the Menu or the end screen.</li>
   </ol></div>`;
 }
 function showHowTo() { const m = openModal(`<div class="dlg-h"><h2>How to play</h2><button class="hbtn" id="b-x">Close</button></div><div class="dlg-b">${howHTML()}</div>`, 'wide'); $('#b-x', m).onclick = () => S && $('#app') ? closeModal() : closeModal(); }
@@ -905,7 +906,7 @@ function showTitle() {
     <div class="t-hero"><div><div class="t-logo">ECB<span>OUTBREAK</span></div>
       <p class="t-tag">A plague is loose and the dead are walking. You command the <b>Expeditionary Combat Brigade</b>: 4,800 soldiers, a fleet of modular combat vehicles, eleven helicopters and a drone squadron. You don't fight alone: every region's own army and police do most of the fighting. The ECB moves fast, reinforces them where they are breaking, and brings the specialists they lack. Draw orders, make hard calls, and hold the world together until the labs finish a cure.</p>
       <div class="t-go">${sv && !sv.over ? `<button class="btn" id="t-cont">Continue week ${sv.turn}</button>` : ''}<button class="btn ${sv && !sv.over ? 'ghost' : ''}" id="t-start">${sv && !sv.over ? 'New run' : 'Start run'}</button><button class="btn ghost" id="t-how">How to play</button><button class="btn ghost" id="t-film">Watch intro</button></div>
-      <label class="t-chk" for="t-intro"><input type="checkbox" id="t-intro" ${introOn() ? 'checked' : ''}> Play the opening cinematic when a run starts</label></div>
+      <label class="t-chk" for="t-intro"><input type="checkbox" id="t-intro" ${introOn() ? 'checked' : ''}> Play the opening and ending movies</label></div>
       <div>${titleMap()}</div></div>
     <div class="t-sec"><h3>Choose your commander</h3><div class="cmds">${E.COMMANDERS.map(c => { const locked = c.unlock && !hardOK; return `<button class="cmd" data-c="${c.id}" aria-pressed="${titleOpts.cmd === c.id}" ${locked ? 'disabled' : ''}><span class="tt">${esc(c.title)}</span><span class="nm">${esc(c.name)}</span><span class="bl">${esc(locked ? 'Locked. ' + c.unlock + ' to unlock.' : c.blurb)}</span></button>`; }).join('')}</div></div>
     <div class="t-sec t-row"><label><span class="lbl">Difficulty</span><div class="seg" id="t-diff">${Object.entries(E.DIFFS).map(([k, d]) => `<button data-d="${k}" aria-pressed="${titleOpts.diff === k}">${d.name}</button>`).join('')}</div></label>
