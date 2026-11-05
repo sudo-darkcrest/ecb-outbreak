@@ -185,6 +185,23 @@ const UL = `<path d="M-30.6 -8.6 L-30.6 -18.2 L-29.4 -20.2 L13.4 -20.2 L28.6 -13
 ${M8W.map(x => `<path d="M${n2(x - 5.6)} -6 L${n2(x - 4.4)} -9.4 L${n2(x + 4.4)} -9.4 L${n2(x + 5.6)} -6 Z" ${F('d0')}/>`).join('')}
 ${M8W.map(x => wheel(x, -4.6, 4.6, { lugs:8, tread:1 })).join('')}`;
 
+// guns split out so scenes can aim them: pivot (px,py) and muzzle (mx,my) in symbol units, base angle, travel limits
+const GUN_IFV = `<rect x="15.4" y="-26" width="2.6" height="3.2" ${F('d2')}/><rect x="17.8" y="-25.5" width="4.6" height="1.9"/><rect x="22.2" y="-25.1" width="13.2" height="1.1"/><rect x="35" y="-25.55" width="3" height="2" ${F('d3')}/><rect x="36.2" y="-25.55" width=".4" height="2" ${F('d0')}/><rect x="16.4" y="-23.4" width="3.2" height=".6"/><path d="M17.8 -25.5 H35" ${AS(.25, .4)}/>`;
+const GUN_AD = `<rect x="14.6" y="-25.6" width="2.2" height="2.8" ${F('d2')}/><rect x="16.6" y="-25.1" width="4.2" height="1.7"/><rect x="20.6" y="-24.7" width="7.4" height="1"/><rect x="27.6" y="-25" width="2" height="1.6" ${F('d3')}/>`;
+const GUN_UL = `<rect x="10.6" y="-24.2" width="2" height="2.4" ${F('d2')}/><rect x="12.4" y="-23.6" width="13" height=".95"/><rect x="25" y="-23.9" width="2.2" height="1.5" ${F('d3')}/>`;
+const GUN_ML = `<rect x="11" y="-22.8" width="2" height="2.4" ${F('d2')}/><rect x="12.8" y="-22.25" width="11" height=".9"/><rect x="23.6" y="-22.6" width="2" height="1.5" ${F('d3')}/>`;
+const GUN_HW = `<rect x="15.2" y="-27.6" width="2.2" height="2.6" ${F('d2')}/><rect x="17.2" y="-27.1" width="10" height="1"/><rect x="27" y="-27.4" width="2" height="1.6" ${F('d3')}/>`;
+const GUN_APACHE = `<circle cx="14.6" cy="2" r="1.3"/><rect x="15" y="2.3" width="6.4" height=".55"/>`;
+const GUN_SP = `<rect x="12.6" y="-32.2" width="4.4" height="5.2" ${F('d2')}/><rect x="16.8" y="-30.5" width="40" height="2"/><rect x="16.8" y="-32.4" width="10" height="1" ${F('d3')}/><rect x="30" y="-31.2" width="7.6" height="3.4" rx="1.4"/><rect x="56" y="-31.6" width="5.4" height="3.8" ${F('d3')}/><rect x="57.6" y="-31.6" width=".55" height="3.8" ${F('d0')}/><rect x="59.4" y="-31.6" width=".55" height="3.8" ${F('d0')}/><path d="M16.8 -30.5 H56 M30.4 -31.2 H37.2" ${AS(.3, .45)}/>`;
+const GUNS = {
+  ifv:    { g:GUN_IFV, px:16.7, py:-24.4, mx:38, my:-24.55, min:-35, max:14 },
+  ad:     { g:GUN_AD, px:15.7, py:-24.2, mx:29.6, my:-24.2, min:-60, max:14 },
+  ul:     { g:GUN_UL, px:11.6, py:-23, mx:27.2, my:-23.15, min:-35, max:14 },
+  ml:     { g:GUN_ML, px:12, py:-21.6, mx:25.6, my:-21.85, min:-35, max:14 },
+  hw:     { g:GUN_HW, px:16.3, py:-26.3, mx:29, my:-26.6, min:-35, max:14, pod:{ x:4.8, y:-35.1, ang:-8 } },
+  sp:     { g:GUN_SP, px:14, py:-29.6, mx:61.4, my:-29.7, base:-16, min:-65, max:4 },
+  apache: { g:GUN_APACHE, px:14.6, py:2, mx:21.4, my:2.58, min:-10, max:75 },
+};
 const VEH = `
 <g id="h-mm">${tracks(-30, 29, 10.4, 6, 3.5)}${hullT(HM)}</g>
 <g id="h-mh">${tracks(-33, 31, 11, 7, 3.3)}${hullT(HH)}</g>
@@ -192,12 +209,12 @@ const VEH = `
 <g id="h-ml">${tracks(-26, 25.2, 9.2, 5, 3.2)}${hullT(HL)}</g>
 <g id="s-ml"><use href="#h-ml"/>
 <path d="M-5.6 -18.4 L-4.8 -19.8 L10 -19.8 L10.8 -18.4 Z" ${F('d2')}/><path d="M-5 -19.6 L-4 -23.6 L6.6 -24 L11 -21.6 L11.4 -19.6 Z"/><path d="M-3.4 -22.8 L6.2 -23.2 L10.2 -21.4 L10.4 -20.4 L-3.8 -20.4 Z" ${F('d3')}/>${camo(63, [[-3.4, 9, -22.6, -20.6, 3]])}<path d="M-4 -23.6 L6.6 -24 L11 -21.6" ${AS(.4, .55)}/>
-<rect x="11" y="-22.8" width="2" height="2.4" ${F('d2')}/><rect x="12.8" y="-22.25" width="11" height=".9"/><rect x="23.6" y="-22.6" width="2" height="1.5" ${F('d3')}/>
+<g style="display:var(--gun,inline)">${GUN_ML}</g>
 <rect x="-.8" y="-29" width="1.2" height="5.2" ${F('d2')}/>${SENSOR(-3.8, -29)}
 <path d="M-5.8 -26 L.2 -26.2 L.2 -24 L-5.8 -23.8 Z" ${F('d2')}/><rect x="-4.6" y="-35" width=".26" height="11"/><rect x="7.6" y="-31" width=".26" height="7"/><circle cx="-4.47" cy="-35" r=".4"/>
 </g>
 <g id="s-ifv"><use href="#h-mm"/>${MT_BODY}
-<rect x="15.4" y="-26" width="2.6" height="3.2" ${F('d2')}/><rect x="17.8" y="-25.5" width="4.6" height="1.9"/><rect x="22.2" y="-25.1" width="13.2" height="1.1"/><rect x="35" y="-25.55" width="3" height="2" ${F('d3')}/><rect x="36.2" y="-25.55" width=".4" height="2" ${F('d0')}/><rect x="16.4" y="-23.4" width="3.2" height=".6"/><path d="M17.8 -25.5 H35" ${AS(.25, .4)}/>
+<g style="display:var(--gun,inline)">${GUN_IFV}</g>
 ${SENSOR(-2.4, -30.6)}<rect x="9.4" y="-30" width="4" height="2"/><rect x="12.9" y="-29.6" width=".7" height="1" ${A(.8)}/>
 <path d="M-8.4 -30.6 L.4 -30.8 L.4 -28 L-8.4 -27.8 Z" ${F('d2')}/><rect x="-.2" y="-30.6" width=".8" height="2.6" ${A(.35)}/><path d="M-8.2 -30.6 H.2" ${AS(.3, .45)}/>
 <g ${F('d3')}><rect x="10.6" y="-28.4" width="2" height=".7" transform="rotate(-30 10.6 -28.4)"/><rect x="11" y="-27.4" width="2" height=".7" transform="rotate(-30 11 -27.4)"/></g>
@@ -205,7 +222,7 @@ ${rws(-17, -21.2)}
 </g>
 <g id="s-ad"><use href="#h-mm"/>
 <path d="M-7.2 -21 L-6.4 -22.6 L14.6 -22.6 L15.6 -21 Z" ${F('d2')}/><path d="M-6.6 -22.4 L-5.6 -26.8 L8 -27.2 L14.4 -24.6 L15 -22.4 Z"/><path d="M-4.8 -26 L7.6 -26.4 L13.6 -24.2 L13.8 -23.2 L-5.2 -23.2 Z" ${F('d3')}/>${camo(23, [[-4.4, 12, -25.8, -23.4, 3]])}
-<rect x="14.6" y="-25.6" width="2.2" height="2.8" ${F('d2')}/><rect x="16.6" y="-25.1" width="4.2" height="1.7"/><rect x="20.6" y="-24.7" width="7.4" height="1"/><rect x="27.6" y="-25" width="2" height="1.6" ${F('d3')}/>
+<g style="display:var(--gun,inline)">${GUN_AD}</g>
 <g transform="rotate(-14 -1 -28)"><rect x="-3.4" y="-28.6" width="3" height="2.4"/><rect x="-10.6" y="-34.6" width="15.4" height="5.8" rx=".6" ${F('d2')}/>${camo(29, [[-10, 4, -34, -29.4, 3]])}<rect x="-10.6" y="-34.6" width="15.4" height=".55" ${A(.45)}/><path d="M-9.6 -31.7 H4" ${S('d0', .3)}/><rect x="4.4" y="-34.2" width="1.1" height="5" ${F('d3')}/><circle cx="4.95" cy="-33.1" r=".62" ${A(.75)}/><circle cx="4.95" cy="-30.4" r=".62" ${A(.75)}/></g>
 <rect x="-6.4" y="-36.4" width=".9" height="9"/><path d="M-10.2 -41.4 L-2.6 -40.2 L-2.8 -36 L-10.4 -37.2 Z" ${F('d2')}/><path d="M-9.8 -40.8 L-3 -39.7" ${AS(.3, .55)}/><path d="M-9.9 -39.4 L-3 -38.3 M-10 -38.2 L-3.1 -37.1" ${S('d4', .2)}/>
 <circle cx="10" cy="-28.6" r="1.6"/><circle cx="10.8" cy="-28.6" r=".65" ${A(.85)}/><rect x="9.2" y="-27.2" width="1.6" height="1"/>
@@ -229,7 +246,7 @@ ${rws(-17, -21.2)}
 <g ${F('d2')}><rect x="-22.6" y="-28.6" width="9" height="3"/><rect x="-12" y="-28.6" width="7" height="3"/><rect x="-29.6" y="-33.4" width="4.2" height="9.6"/></g><path d="M-29.4 -30.6 H-25.6 M-29.4 -27.8 H-25.6" ${S('d4', .25)}/>
 <rect x="-2.6" y="-33" width="7" height="7.4" ${S('d0', .35)}/><path d="M-24 -32.2 H11.4 M-24 -26 H12.8" ${S('d5', .32)} stroke-dasharray=".01 1.7" stroke-linecap="round"/><path d="M-22.8 -35.6 L4.6 -35.6 L13.4 -31" ${AS(.45, .55)}/>
 ${rws(-12.6, -35.6)}<rect x="-24.2" y="-50" width=".28" height="14.4"/><rect x="-21.8" y="-46" width=".28" height="10.4"/><circle cx="-24.06" cy="-50" r=".42"/>
-<g transform="rotate(-16 14 -29.6)"><rect x="12.6" y="-32.2" width="4.4" height="5.2" ${F('d2')}/><rect x="16.8" y="-30.5" width="40" height="2"/><rect x="16.8" y="-32.4" width="10" height="1" ${F('d3')}/><rect x="30" y="-31.2" width="7.6" height="3.4" rx="1.4"/><rect x="56" y="-31.6" width="5.4" height="3.8" ${F('d3')}/><rect x="57.6" y="-31.6" width=".55" height="3.8" ${F('d0')}/><rect x="59.4" y="-31.6" width=".55" height="3.8" ${F('d0')}/><path d="M16.8 -30.5 H56 M30.4 -31.2 H37.2" ${AS(.3, .45)}/></g>
+<g transform="rotate(-16 14 -29.6)" style="display:var(--gun,inline)">${GUN_SP}</g>
 </g>
 <g id="s-dozer"><use href="#h-mh"/>
 ${rws(-6, -22.8)}<rect x="-26" y="-25.4" width="10" height="2.6" ${F('d2')}/><path d="M-25.4 -24.1 H-16.6" ${S('d4', .25)}/>
@@ -245,13 +262,13 @@ ${rws(-6, -22.8)}<rect x="-26" y="-25.4" width="10" height="2.6" ${F('d2')}/><pa
 </g>
 <g id="s-hw"><use href="#h-mh"/>
 <path d="M-12.6 -22.6 L-11.6 -24.4 L14.6 -24.4 L15.6 -22.6 Z" ${F('d2')}/><path d="M-12 -24.2 L-11 -29.4 L9 -29.8 L15 -26.6 L15.6 -24.2 Z"/><path d="M-10.2 -28.6 L8.6 -29 L14 -26.2 L14.4 -25 L-10.6 -25 Z" ${F('d3')}/>${camo(51, [[-10, 12, -28.4, -25.4, 4]])}<path d="M-11 -29.4 L9 -29.8 L15 -26.6" ${AS(.4, .55)}/>
-<rect x="15.2" y="-27.6" width="2.2" height="2.6" ${F('d2')}/><rect x="17.2" y="-27.1" width="10" height="1"/><rect x="27" y="-27.4" width="2" height="1.6" ${F('d3')}/>
+<g style="display:var(--gun,inline)">${GUN_HW}</g>
 <g transform="rotate(-8 -4 -31)"><rect x="-12.4" y="-39.8" width="16.6" height="3" ${F('d3')}/><rect x="-13" y="-36.6" width="17.4" height="5.6" rx=".6" ${F('d2')}/>${camo(53, [[-12.4, 3, -36, -31.6, 3]])}<rect x="-13" y="-36.6" width="17.4" height=".55" ${A(.45)}/><path d="M-12 -33.8 H4" ${S('d0', .3)}/><rect x="4.2" y="-36.2" width="1.1" height="4.8" ${F('d3')}/><circle cx="4.75" cy="-35" r=".62" ${A(.75)}/><circle cx="4.75" cy="-32.6" r=".62" ${A(.75)}/><rect x="-1.4" y="-31.4" width="2.6" height="2.4"/></g>
 ${SENSOR(7, -29.8)}${rws(-26, -22.8)}
 </g>
 <g id="s-ul"><use href="#h-ul"/>
 <path d="M-4.6 -20 L-4 -21.4 L9.6 -21.4 L10.4 -20 Z" ${F('d2')}/><path d="M-4 -21.2 L-3.2 -25.2 L6.4 -25.6 L10.6 -23.4 L11 -21.2 Z"/><path d="M-2.6 -24.4 L6 -24.8 L9.8 -23 L10 -22 L-3 -22 Z" ${F('d3')}/><path d="M-3.2 -25.2 L6.4 -25.6 L10.6 -23.4" ${AS(.4, .55)}/>
-<rect x="10.6" y="-24.2" width="2" height="2.4" ${F('d2')}/><rect x="12.4" y="-23.6" width="13" height=".95"/><rect x="25" y="-23.9" width="2.2" height="1.5" ${F('d3')}/>
+<g style="display:var(--gun,inline)">${GUN_UL}</g>
 ${SENSOR(-1.2, -27.4)}<path d="M-5.4 -27.4 L.6 -27.6 L.6 -25.4 L-5.4 -25.2 Z" ${F('d2')}/>
 </g>
 <g id="s-truck">
@@ -328,7 +345,7 @@ ${wheel(-5.6, 0, 2)}${wheel(5.8, 0, 2)}
 <g ${F('d2')}><rect x="-7.6" y=".2" width="8" height=".9" rx=".4"/><rect x="-7.6" y="1.3" width="8" height=".9" rx=".4"/></g><path d="M.4 .2 L1.4 .65 L.4 1.1 Z M.4 1.3 L1.4 1.75 L.4 2.2 Z" ${A(.5)}/>
 <rect x="2.2" y="-.1" width="6.4" height="2.8" rx="1.1"/><g ${A(.4)}><circle cx="8.2" cy=".6" r=".45"/><circle cx="8.2" cy="1.8" r=".45"/></g>
 <circle cx="21.8" cy="-.4" r="2" ${F('d2')}/><rect x="22.6" y="-1.2" width="1.4" height="1.6" ${A(.7)}/><circle cx="20.6" cy="-3.6" r="1" ${F('d3')}/><circle cx="21.1" cy="-3.6" r=".4" ${A(.7)}/>
-<circle cx="14.6" cy="2" r="1.3"/><rect x="15" y="2.3" width="6.4" height=".55"/>
+<g style="display:var(--gun,inline)">${GUN_APACHE}</g>
 <path d="M6.4 1.8 L5.4 4.2" ${CS(.6)}/><path d="M-1 1.4 L-1.6 3.8" ${CS(.5)}/>${wheel(5.2, 4.6, 1.5, { lugs: 4 })}
 <path d="M-13 -6.8 L-38 -4.4 L-38.4 -2.6 L-13.2 -2.8 Z"/><path d="M-13 -6.8 L-38 -4.4" ${AS(.35, .45)}/><rect x="-30" y="-4.6" width="2" height="1.6" ${F('d3')}/>
 <path d="M-36.4 -4 L-41 -13.8 L-38.6 -14 L-34.6 -4.4 Z"/><path d="M-41 -13.8 L-38.6 -14" ${AS(.4, .5)}/>
@@ -630,7 +647,7 @@ ${[-23, -17, -11, -5, 1, 7, 13, 19].map(x => `<ellipse cx="${x + 2}" cy="-14.8" 
 <g id="s-rubble"><path d="M-9 0 L-7 -2.4 L-4.6 -1.8 L-3 -4 L-.4 -3.2 L1.6 -5 L4 -3 L6.4 -3.6 L9 0 Z"/><path d="M-3 -4 L-.4 -3.2 L1.6 -5" ${AS(.35, .45)}/><path d="M-1 -3.6 L-2.4 -7 M3 -3.8 L4.6 -6.4" fill="none" stroke="currentColor" stroke-width=".3"/><rect x="5" y="-2.8" width="2.6" height="1.4" transform="rotate(-18 5 -2.8)" ${F('d3')}/></g>
 <g id="s-screen"><rect x="-9" y="-6" width="18" height="11" rx=".6"/><rect x="-8.2" y="-5.2" width="16.4" height="9.4" ${A(.22)}/><path d="M-7 2 L-4 -1 L-1 1 L3 -3 L7 -1" ${AS(.4, .8)}/><g ${A(.35)}><rect x="-7" y="-4.2" width="5" height=".6"/><rect x="-7" y="-3" width="3" height=".6"/></g><rect x="-.6" y="5" width="1.2" height="2"/></g>`;
 
-const DEFS = VEH + PEOPLE + PROPS + `
+const DEFS = VEH + PEOPLE + PROPS + Object.entries(GUNS).map(([k, G]) => `<g id="s-${k}-gun">${G.g}</g>`).join('') + `
 <g id="s-gtex">${scatter(21, 26, 73.2, 85, 'rubble')}${scatter(23, 14, 74, 84, 'line')}</g>
 <g id="s-sky0"><path d="${SK0.d}"/></g>
 <g id="s-sky1"><path d="${SK1.d}"/><g fill="#000" opacity=".2">${SK1.top}</g></g>
@@ -657,11 +674,12 @@ const NORIM = /^(sky|ru|pine|oak|snowpine|pole|slamp|rubble|screen)/;
 function U(sym, x, y, s = 1, o = {}) {
   if (sym === 'zombie' && !o.c) o = Object.assign({ c:'#180807' }, o);
   const col = o.c === 'acc' ? 'var(--acc)' : o.c === 'fire' ? FIRE : o.c === 'red' ? RED : o.c === 'mid' ? MID : o.c === 'light' ? '#e8efe9' : o.c || INK;
-  const rk = Math.min(s, 1.3); const tf = (dx, dy) => `translate(${n2(+x + dx * rk)} ${n2(+y + dy * rk)})${o.r ? ` rotate(${o.r})` : ''} scale(${o.f ? -s : s} ${s})`;
+  const rk = Math.min(s, 1.3); const tf = (dx, dy) => `translate(${n2(+x + dx * rk)} ${n2(+y + dy * rk)})${o.r ? ` rotate(${o.r})` : ''} scale(${o.f ? -s : s} ${s})${o.inner ? ' ' + o.inner : ''}`;
+  const ng = o.nogun ? '--gun:none;' : '';
   const solid = !o.c || o.c === '#180807' || o.c === INK;
-  const rim = solid && o.o == null && o.rim !== false && !NORIM.test(sym) ? `<use href="#s-${sym}" transform="${tf(-.42, -.5)}" style="fill:var(--acc);color:var(--acc);${RIMVARS}" opacity="${sym === 'zombie' ? .38 : .55}"/>` : '';
+  const rim = solid && o.o == null && o.rim !== false && !NORIM.test(sym) ? `<use href="#s-${sym}" transform="${tf(-.42, -.5)}" style="fill:var(--acc);color:var(--acc);${RIMVARS};${ng}" opacity="${sym === 'zombie' ? .38 : .55}"/>` : '';
   const flat = o.c === 'acc' ? `fill:var(--acc);color:var(--acc);${RIMVARS}` : '';
-  return rim + `<use href="#s-${sym}" transform="${tf(0, 0)}" fill="${col}" color="${col}" style="${flat}"${o.o != null ? ` opacity="${o.o}"` : ''}/>`;
+  return rim + `<use href="#s-${sym}" transform="${tf(0, 0)}" fill="${col}" color="${col}" style="${flat}${ng}"${o.o != null ? ` opacity="${o.o}"` : ''}/>`;
 }
 const CIVS = ['civ', 'civ2', 'civ3'];
 function item(it, k) {
@@ -679,6 +697,27 @@ function item(it, k) {
   if (t === 'waves') { const [x, y, n] = it.slice(1); let o = ''; for (let i = 1; i <= (n || 3); i++) o += `<path d="M${x - 4 * i} ${y - 3 * i} A${5 * i} ${5 * i} 0 0 1 ${x + 4 * i} ${y - 3 * i}" fill="none" style="stroke:var(--acc)" stroke-width=".9" opacity="${1 - i * .22}"/>`; return o; }
   if (t === 'rect') return `<rect x="${it[1]}" y="${it[2]}" width="${it[3]}" height="${it[4]}" fill="${it[5] || INK}"${it[6] != null ? ` opacity="${it[6]}"` : ''}/>`;
   if (t === 'bg') return bg(it[1], k);
+  // ['shot', sym, x, y, scale, opts, [[tx,ty],...]]: the vehicle's gun aims at the first target and every tracer starts at the muzzle
+  //   opts.missiles: [[tx,ty],...] fires curved missile trails from the launcher pod (MCV-H/HW)
+  if (t === 'shot') {
+    const [sym, x, y, sc, o0, tgts] = it.slice(1); const o = o0 || {}; const G = GUNS[sym]; const sx = o.f ? -sc : sc, rr = (o.r || 0) * Math.PI / 180;
+    const T = (lx, ly) => { const ax = sx * lx, ay = sc * ly; return [x + ax * Math.cos(rr) - ay * Math.sin(rr), y + ax * Math.sin(rr) + ay * Math.cos(rr)]; };
+    let out = U(sym, x, y, sc, Object.assign({}, o, { nogun:true }));
+    let a = G.base || 0;
+    if (tgts && tgts.length) { const [px, py] = T(G.px, G.py), [tx, ty] = tgts[0]; const psi = Math.atan2(ty - py, tx - px) - rr; let deg = (o.f ? Math.PI - psi : psi) * 180 / Math.PI; while (deg > 180) deg -= 360; while (deg < -180) deg += 360; a = Math.max(G.min, Math.min(G.max, deg)); }
+    out += U(sym + '-gun', x, y, sc, Object.assign({}, o, { inner:`rotate(${n2(a)} ${G.px} ${G.py})` }));
+    const ar = a * Math.PI / 180, dx = G.mx - G.px, dy = G.my - G.py; const [mx, my] = T(G.px + dx * Math.cos(ar) - dy * Math.sin(ar), G.py + dx * Math.sin(ar) + dy * Math.cos(ar));
+    for (const [tx, ty] of (tgts || [])) out += item(['tr', n2(mx), n2(my), tx, ty], k);
+    if (tgts && tgts.length) out += `<circle cx="${n2(mx)}" cy="${n2(my)}" r="${n2(6 * sc)}" fill="url(#glw-fire)"/><circle cx="${n2(mx)}" cy="${n2(my)}" r="${n2(1.1 * sc)}" fill="#fff4c8"/>`;
+    if (o.missiles && G.pod) {
+      const [qx, qy] = T(G.pod.x, G.pod.y); const pa = (o.f ? 180 - G.pod.ang : G.pod.ang) * Math.PI / 180 + rr;
+      out += `<circle cx="${n2(qx)}" cy="${n2(qy)}" r="${n2(7 * sc)}" fill="url(#glw-fire)"/>`;
+      o.missiles.forEach(([tx, ty], i) => { const L = Math.hypot(tx - qx, ty - qy) * .45; const cx = qx + Math.cos(pa) * L, cy = qy + Math.sin(pa) * L - 4 - i * 3;
+        const d = `M${n2(qx)} ${n2(qy)} Q${n2(cx)} ${n2(cy)} ${tx} ${ty}`;
+        out += `<path d="${d}" fill="none" stroke="#c9c2b4" stroke-width="2.6" opacity=".22" stroke-linecap="round"/><path d="${d}" fill="none" stroke="#fff0c0" stroke-width=".6" opacity=".9"/><circle cx="${tx}" cy="${ty}" r="1.6" fill="#fff0c0" opacity=".8"/>`; });
+    }
+    return out;
+  }
   if (t === 'horde') { const [x0, x1, y, n, s] = it.slice(1); let o = ''; const r = lcg(x0 * 7 + n); for (let i = 0; i < n; i++) { const x = x0 + (x1 - x0) * (i / Math.max(1, n - 1)) + (r() - .5) * 4; const sc = (s || 1) * (.75 + r() * .4); o += U('zombie', x.toFixed(1), y, sc, { f: it[6] ? 1 : 0, o: i % 2 ? .82 : undefined }); } return o; }
   if (t === 'crowd') { const [x0, x1, y, n, s] = it.slice(1); let o = ''; const r = lcg(x0 * 3 + n); for (let i = 0; i < n; i++) { const x = x0 + (x1 - x0) * (i / Math.max(1, n - 1)) + (r() - .5) * 3; const kid = r() < .2; const sc = (s || 1) * (kid ? .62 : .8 + r() * .3); const v = kid ? 'civ' : CIVS[Math.floor(r() * 3)]; o += U(v, x.toFixed(1), y, sc, { f: r() < .5 ? 1 : 0 }); } return o; }
   return '';
@@ -715,11 +754,11 @@ const SC = {
   dig_in: [['bg','ruins'],['u','sandbag',52,72,1.7],['u','kneel',42,59,1.4],['u','kneel',62,59,1.4],['u','wire',118,72,1.25],['horde',140,156,72,2,1.5]],
   samples: [['bg','ruins'],['g',82,56,30],['u','zombie',110,72,1.7,{r:-84}],['u','kneel',74,72,1.75],['u','vial',94,56,1.3,{c:'light'}],['g',94,51,10],['u','bio',138,26,1.5,{o:.55}]],
   // ===== combat
-  mech_sweep: [['bg','ruins'],['g',140,60,26,'fire'],['u','ifv',48,72,1.35],['tr',100,38,140,58],['u','burst',140,58,.5],['horde',124,156,72,3,1.45],['smoke',10,66,.7]],
-  hw_platoon: [['bg','ruins'],['u','hw',46,72,1.15],['g',53,32,9,'fire'],['tr',53,32,148,60],['tr',53,34,138,62],['horde',118,156,72,4,1.4]],
+  mech_sweep: [['bg','ruins'],['g',140,60,26,'fire'],['shot','ifv',46,72,1.25,{},[[141,57],[148,60]]],['u','burst',140,58,.5],['horde',124,156,72,3,1.45],['smoke',10,66,.7]],
+  hw_platoon: [['bg','ruins'],['shot','hw',44,72,1.1,{missiles:[[146,59],[134,62]]},[]],['horde',118,156,72,4,1.4]],
   snipers: [['bg','city'],['rect',0,44,58,28],['u','prone',26,44,1.65],['u','reticle',118,50,1.6],['u','zombie',118,72,1.7],['horde',144,158,72,2,1.25]],
-  combined_arms: [['bg','ruins'],['u','apache',108,26,.95],['tr',120,28,140,62],['g',138,64,26,'fire'],['u','burst',140,64,.7],['u','sp',30,72,.9],['u','ifv',108,73,.88]],
-  linebacker: [['bg','field'],['u','ad',44,72,1.45],['g',87,36,9,'fire'],['tr',87,36,150,56],['tr',87,37,144,60],['u','burst',146,58,.45],['horde',118,156,72,3,1.45]],
+  combined_arms: [['bg','ruins'],['shot','apache',104,28,.95,{r:9},[[140,62]]],['g',138,64,26,'fire'],['u','burst',140,64,.7],['u','sp',30,72,.9],['u','ifv',108,73,.88]],
+  linebacker: [['bg','field'],['shot','ad',44,72,1.4,{},[[146,57],[152,60]]],['u','burst',146,58,.45],['horde',118,156,72,3,1.45]],
   qrf: [['bg','city'],['u','ul',124,73,1.1],['u','soldier',22,72,1.5],['u','soldier',44,72,1.5],['u','soldier',66,72,1.5],['line',2,58,14,58,.7,'var(--acc)'],['line',0,63,10,63,.7,'var(--acc)']],
   obstacles: [['bg','ruins'],['u','dozer',36,72,1.05],['u','barrier',100,72,1.4],['u','wire',128,72,1.2],['horde',146,158,72,2,1.4]],
   breach: [['bg','ruins'],['u','dozer',40,72,1.25],['u','car',108,72,1.4,{r:-14}],['u','car',134,68,1.3,{r:172}],['smoke',118,64,.7]],
@@ -729,10 +768,10 @@ const SC = {
   firebreak: [['bg','city'],['g',80,64,60,'fire'],['u','flame',24,72,1.8],['u','flame',50,72,2.3],['u','flame',78,72,1.9],['u','flame',104,72,2.4],['u','flame',130,72,1.8],['u','flame',152,72,2.1],['smoke',60,50,1.2],['smoke',112,48,1.1]],
   fpf: [['bg','ruins'],['g',118,64,44,'fire'],['u','burst',104,66,.65],['u','burst',124,64,.75],['u','burst',146,66,.6],['u','sandbag',40,72,1.6],['u','kneel',30,59,1.4],['u','kneel',52,59,1.4]],
   // ===== air
-  apache: [['bg','ruins'],['u','apache',62,28,1.55],['tr',70,32,124,66],['tr',68,33,110,68],['g',120,66,22,'fire'],['u','burst',124,66,.6],['u','burst',110,68,.45],['horde',134,156,72,2,1.4]],
+  apache: [['bg','ruins'],['shot','apache',60,30,1.5,{r:9},[[122,64],[110,67]]],['g',120,66,22,'fire'],['u','burst',124,66,.6],['u','burst',110,68,.45],['horde',134,156,72,2,1.4]],
   medevac: [['bg','field'],['g',86,30,34],['u','hawk',90,30,1.5],['u','redx',92,22,1],['u','soldier',54,72,1.4],['u','soldier',118,72,1.4,{f:1}],['rect',56,56,60,3],['line',90,33,90,56,.4,'#9fb']],
   airbridge: [['bg','hills'],['g',80,30,30],['u','chinook',80,26,1.35],['line',80,29,74,56,.5,'#d8d0a8'],['line',80,29,86,56,.5,'#d8d0a8'],['u','crate',80,64,1.9]],
-  air_assault: [['bg','city'],['u','hawk',64,22,1.25],['line',62,24,62,48,.5,'#cfc8a8'],['u','soldier',62,50,1.05],['u','soldier',26,72,1.45],['u','kneel',92,72,1.45],['tr',108,62,146,64],['horde',142,158,72,2,1.4]],
+  air_assault: [['bg','city'],['u','hawk',64,22,1.25],['line',62,24,62,48,.5,'#cfc8a8'],['u','soldier',62,50,1.05],['u','soldier',26,72,1.45],['u','kneel',92,72,1.45],['tr',111,57.2,146,59],['horde',142,158,72,2,1.4]],
   rooftop: [['bg','city'],['rect',46,40,82,32],['g',96,18,28],['u','hawk',96,16,1.35],['line',94,19,94,40,.5,'#cfc8a8'],['crowd',58,114,40,4,1.2]],
   redeploy: [['bg','field'],['u','chinook',56,20,1.15],['u','ifv',32,73,1.05],['u','truck',94,73,1.1],['u','truck',140,73,1.1],['line',0,58,12,58,.7,'var(--acc)'],['line',0,63,8,63,.7,'var(--acc)']],
   cas: [['bg','ruins'],['u','jet',100,18,1.9],['line',160,17,124,18,1,'#d9e6e2'],['g',62,64,40,'fire'],['u','burst',46,66,.7],['u','burst',68,63,.9],['u','burst',90,66,.6],['smoke',66,58,1],['horde',112,150,72,3,1.35]],
@@ -776,7 +815,7 @@ const SC = {
   restore_gov: [['bg','city'],['rays',80,44],['u','lab',80,72,1.35],['u','flag',80,37,.8],['crowd',8,52,72,4,1.25],['crowd',110,154,72,4,1.25]],
   reopen_trade: [['bg','sea'],['g',28,52,28,'sun'],['u','ship',112,66,1.3],['u','truck',36,73,1.1],['u','crate',66,72,1.4],['u','crate',80,72,1.4]],
   census: [['bg','field'],['u','tent',132,72,1.5],['u','officer',54,72,1.6],['rect',58,52,6,4.6,'#e8e2d0'],['crowd',72,108,72,4,1.25],['crowd',6,40,72,3,1.2]],
-  reclaim: [['bg','ruins'],['u','flag',8,72,1.2],['u','ifv',50,72,1.1],['u','soldier',104,72,1.45],['tr',116,55,140,62],['horde',130,156,72,2,1.4]],
+  reclaim: [['bg','ruins'],['u','flag',8,72,1.2],['u','ifv',50,72,1.1],['u','soldier',104,72,1.45],['tr',121.7,54.5,146,57.5],['horde',130,156,72,2,1.4]],
   cure: [['bg','city'],['rays',80,52],['g',80,44,56],['u','vial',80,60,3.4,{c:'light'}],['crowd',4,60,72,5,1.25],['crowd',100,156,72,5,1.25]],
   hoarding: [['bg','room'],['u','crate',58,72,2.3],['u','crate',82,72,2.3],['u','flask',70,54,1.2,{c:'acc'}],['u','officer',22,72,1.6],['u','soldier',136,72,1.55,{f:1}]],
   holdout: [['bg','desert'],['u','flag',22,72,1.3],['u','officer',74,72,2],['u','soldier',48,72,1.45,{c:'#0a0d0e'}],['u','pickup',130,73,1.45]],
