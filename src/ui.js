@@ -146,13 +146,17 @@ function renderMap() {
     el('path', { d:'M0 -3.6 L3 -2.4 L3 .4 Q3 2.6 0 3.8 Q-3 2.6 -3 .4 L-3 -2.4 Z', fill:'#a9c9ff', stroke:'#0b1214', 'stroke-width':.8 }, g5); el('path', { d:'M-1.4 .1 L-.3 1.3 L1.6 -1.2', fill:'none', stroke:'#0b1214', 'stroke-width':.8 }, g5);
     const t5 = el('title', {}, g5); t5.textContent = `${r.name}: stabilized` + (E.presentIn(S, r.id) ? '' : `, ${rs.stab} weeks left`);
   }
+  const lblBox = id => { const g = $(`#g-lbl g[data-id="${id}"]`); let hw = 14, hw2 = 0; const lk = (g && g.children[0].getAttribute('font-size') / 6.6) || 1;
+    try { hw = g.children[0].getComputedTextLength() / 2; hw2 = g.children[1].textContent ? g.children[1].getComputedTextLength() / 2 : 0; } catch (e) {} return { hw, hw2, lk, shown:!g || g.style.display !== 'none' }; };
   for (const r of E.REGIONS) {
-    const sz = S.regions[r.id].sz; if (!sz) continue; const [x, y] = r.a; const o = LOFF[r.id] || [0,0];
-    for (let i = 0; i < sz; i++) el('rect', { x:x + o[0] - 14 - i * 4.2, y:y + o[1] - 5, width:3.2, height:3.2, rx:.6, fill:'#7fc28c', stroke:'#0b1214', 'stroke-width':.5 }, gM);
+    const sz = S.regions[r.id].sz; if (!sz) continue; const [x, y] = r.a; const o = LOFF[r.id] || [0,0]; const L = lblBox(r.id);
+    const g3 = el('g', { class:'szmk', transform:`translate(${x + o[0] - L.hw - 2 * L.lk},${y + o[1] - 2.3 * L.lk}) scale(${L.lk})` }, gM);
+    for (let i = 0; i < sz; i++) el('rect', { x:-3.6 - i * 4.2, y:-1.6, width:3.2, height:3.2, rx:.6, fill:'#7fc28c', stroke:'#0b1214', 'stroke-width':.5 }, g3);
+    const t3 = el('title', {}, g3); t3.textContent = `Safe zones: ${sz}/3`;
   }
   for (const r of E.REGIONS) {
-    const wk = E.worksIn(S, r.id); if (!wk.length) continue; const [x, y] = r.a; const o = LOFF[r.id] || [0,0];
-    const g4 = el('g', { class:'works', transform:`translate(${x + o[0] - 13},${y + o[1] + 3})` }, gM);
+    const wk = E.worksIn(S, r.id); if (!wk.length) continue; const [x, y] = r.a; const o = LOFF[r.id] || [0,0]; const L = lblBox(r.id);
+    const g4 = el('g', { class:'works', transform:`translate(${x + o[0] - Math.max(L.hw2, 6 * L.lk) - 5.5 * L.lk},${y + o[1] + 4.4 * L.lk}) scale(${L.lk})` }, gM);
     wk.forEach((k, i) => el('rect', { x:-i * 4.2, y:0, width:3.2, height:3.2, transform:`rotate(45 ${-i * 4.2 + 1.6} 1.6)`, fill:'#f0a53a', stroke:'#0b1214', 'stroke-width':.5 }, g4));
     const t4 = el('title', {}, g4); t4.textContent = 'Field works: ' + wk.map(k => E.WORKS[k].name).join(', ');
   }
@@ -271,7 +275,7 @@ function render() {
 }
 function renderHeader() {
   $('#h-week').textContent = String(S.turn).padStart(2, '0') + ' · ' + dateOf(S.turn);
-  const sn = E.seasonOf('N', E.monthOf(S.turn)); $('#h-season').textContent = `Week · ${sn} in the north`;
+  const sn = E.seasonOf('N', E.monthOf(S.turn)); $('#h-season').textContent = `${S.camp ? `Op ${S.camp.op}/${S.camp.len} · ` : ''}Week · ${sn} in the north`;
   const sv = E.survivors(S), z = E.infected(S), d = E.dead(S), prev = S.history[S.history.length - 2];
   const dS = prev ? sv - prev.h : 0;
   $('#h-stats').innerHTML = `
@@ -395,7 +399,7 @@ function restoreChecklist(rs) {
 const HN_COL = { Strong:'#7fc28c', Holding:'#a9c98f', Strained:'#e8c547', Breaking:'#ff9a5e', Collapsed:'#ff6a5e' };
 function hnRow(rs, id) {
   const v = rs.hn == null ? 1 : rs.hn; const lb = rs.fallen ? 'Collapsed' : E.hnLabel(v); const bol = rs.fallen ? 1 : E.hnBolster(S, id);
-  return `<dt title="The region's own army and police. They do most of the fighting.">Host forces</dt><dd style="color:${HN_COL[lb]}">${lb} · ${Math.round(v * 100)}%${bol > 1.001 ? ` <span style="color:var(--friend)" title="Your brigade makes them fight harder">+${Math.round((bol - 1) * 100)}% ECB</span>` : ''}</dd>`;
+  return `<dt title="The region's own army and police. They do most of the fighting.">Host forces</dt><dd style="color:${HN_COL[lb]}">${lb} · ${Math.round(v * 100)}%${bol > 1.001 ? ` <span style="color:var(--friend);white-space:nowrap" title="Your brigade makes them fight harder">+${Math.round((bol - 1) * 100)}% ECB</span>` : ''}</dd>`;
 }
 function stabChecklist(rs, id) {
   if (rs.fallen || rs.stab > 0) return '';
@@ -805,6 +809,7 @@ function showBoard() {
 function showGameOver() {
   const o = S.over; const mt = meta();
   if (!S.recorded) { S.recorded = true; S.unlockedNow = mt.maxWeeks < 20 && S.turn >= 20; mt.runs++; if (o.win) mt.wins++; mt.best = Math.max(mt.best, o.score); mt.maxWeeks = Math.max(mt.maxWeeks, S.turn); put(META_KEY, mt); drop(SAVE_KEY); }
+  const cpg = S.camp ? recordOp() : null;
   const sv = E.survivors(S);
   const unlockedNow = !!S.unlockedNow;
   const art = o.win ? ART.svg(S.phase === 'restore' ? 'restore_gov' : 'cure', S.phase === 'restore' ? 'CIVIL' : 'CURE', '', true) : ART.svg(o.title === 'Mutiny' ? 'mutiny' : o.title === 'Relieved of Command' ? 'inquiry' : 'horde', o.title === 'Mutiny' || o.title === 'Relieved of Command' ? 'COMMAND' : 'COMBAT', '', true);
@@ -822,11 +827,12 @@ function showGameOver() {
         <div class="stat"><span class="lbl">Best score</span><span class="v mono">${mt.best.toLocaleString()}</span></div>
       </div>
       <p class="note">${esc(E.CMD[S.cmd].name)} · ${E.DIFFS[S.diff].name} · seed <span class="mono">${esc(S.seed)}</span> · regions fallen ${E.fallenCount(S)} · directives ${S.stats.directivesWon} won, ${S.stats.directivesLost} failed</p>
-      ${unlockedNow ? '<p style="color:var(--amber)">Lt. Gen. Frank Garrison (Hardliner) is now available as a commander.</p>' : ''}</div>
-    <div class="dlg-f">${CINE.hasEnding(S) ? '<button class="btn ghost" id="b-endfilm">Watch the ending</button>' : ''}<button class="btn ghost" id="b-look">Look at the map</button><button class="btn ghost" id="b-same">Retry same seed</button><button class="btn" id="b-new">New run</button></div>`);
+      ${unlockedNow ? '<p style="color:var(--amber)">Lt. Gen. Frank Garrison (Hardliner) is now available as a commander.</p>' : ''}
+    ${cpg ? `<p class="note" style="color:var(--amber)">Campaign · ${opName(cpg, S.camp.op)} · record ${cpg.wins}–${cpg.losses}${cpg.stage === 'over' ? ' · the campaign is over' : ''}</p>` : ''}</div>
+    <div class="dlg-f">${CINE.hasEnding(S) ? '<button class="btn ghost" id="b-endfilm">Watch the ending</button>' : ''}<button class="btn ghost" id="b-look">Look at the map</button>${cpg ? `<button class="btn" id="b-camp">${cpg.stage === 'debrief' ? 'Continue the campaign' : 'Campaign results'}</button>` : '<button class="btn ghost" id="b-same">Retry same seed</button><button class="btn" id="b-new">New run</button>'}</div>`);
   $('#b-look', m).onclick = closeModal; const bef = $('#b-endfilm', m); if (bef) bef.onclick = () => { closeModal(); CINE.ending(S, showGameOver); };
-  $('#b-same', m).onclick = () => startGame({ cmd:S.cmd, diff:S.diff, seed:S.seed });
-  $('#b-new', m).onclick = showTitle;
+  if (cpg) $('#b-camp', m).onclick = () => cpg.stage === 'debrief' ? showDebrief() : showCampaignEnd();
+  else { $('#b-same', m).onclick = () => startGame({ cmd:S.cmd, diff:S.diff, seed:S.seed }); $('#b-new', m).onclick = showTitle; }
 }
 function showMenu() {
   const m = openModal(`<div class="dlg-h"><div><div class="k" style="color:var(--amber)">Seed ${esc(S.seed)} · progress saves every action</div><h2>Menu</h2></div><button class="hbtn" id="b-x">Close</button></div>
@@ -837,7 +843,7 @@ function showMenu() {
       <button class="opt" id="m-snd"><span class="num">♪</span><span><span class="ol">Sound: ${SFX.isMuted() ? 'off' : 'on'}</span><div class="of">Gunfire, helicopters, radio and alarms. Tap to switch.</div></span></button>
       <button class="opt" id="m-oob"><span class="num">≡</span><span><span class="ol">Brigade order of battle</span><div class="of">What the ECB is made of.</div></span></button>
       <button class="opt" id="m-title"><span class="num">⌂</span><span><span class="ol">Title screen</span><div class="of">Your run stays saved. Continue it from the title screen.</div></span></button>
-      <button class="opt" id="m-quit"><span class="num">×</span><span><span class="ol">Abandon this run</span><div class="of">Ends the run now and counts it as a loss.</div></span></button>
+      <button class="opt" id="m-quit"><span class="num">×</span><span><span class="ol">${S.camp ? 'Abandon this operation' : 'Abandon this run'}</span><div class="of">${S.camp ? 'Ends the operation and the whole campaign.' : 'Ends the run now and counts it as a loss.'}</div></span></button>
     </div></div>`);
   $('#b-x', m).onclick = closeModal; $('#m-how', m).onclick = showHowTo; $('#m-film', m).onclick = () => { closeModal(); CINE.play(S, enterGame); }; $('#m-oob', m).onclick = showOOB; $('#m-tut', m).onclick = () => { closeModal(); TUT.start(true); }; $('#m-snd', m).onclick = () => { SFX.setMuted(!SFX.isMuted()); sndBtn(); $('#m-snd .ol', m).textContent = 'Sound: ' + (SFX.isMuted() ? 'off' : 'on'); if (!SFX.isMuted()) SFX.play('click'); }; $('#m-title', m).onclick = showTitle;
   $('#m-quit', m).onclick = () => { $('#m-quit', m).querySelector('.ol').textContent = 'Tap again to confirm'; $('#m-quit', m).onclick = () => { S.over = { win:false, title:'Run Abandoned', text:'You handed over command.' }; S.over.score = E.score(S); flow(); }; };
@@ -866,6 +872,7 @@ function howHTML() {
     <li><b>Burn cards</b> you don't want with the flame button on a card in your hand (tap it twice). The card goes to the discard pile. It stays in your deck and comes back later, but its slot fills with a fresh card next week. To take a card out of your deck for good, use Remove a card on a reward screen.</li>
     <li><b>Shortcuts:</b> keys 1–9 play cards or pick crisis choices, A opens air tasking, G opens engineers, E ends the week.</li>
     <li><b>Sound and tips:</b> the speaker button at the top turns sound on or off. The Menu can replay the tutorial tips.</li>
+    <li><b>Campaign mode</b> (Start campaign on the title screen): 3, 4 or 5 operations in a row with the same brigade. Your maneuver battalions keep their experience and commanders, lost soldiers are only partly replaced, doctrines stay adopted, and each outbreak is a bit more infectious. Between operations you pick a refit. A second failed operation, or the brigade being wiped out, mutinying or you being relieved, ends the campaign.</li>
     <li><b>Movies:</b> an opening movie plays when a run starts and an ending movie when it ends, different for each kind of win or loss. Turn both off on the title screen. Replay them from the Menu or the end screen.</li>
   </ol></div>`;
 }
@@ -898,21 +905,113 @@ function titleMap() {
   for (const [id, v] of Object.entries(hot)) { const [x, y] = E.RD[id].a; s += `<circle cx="${x}" cy="${y}" r="${30 * v + 10}" fill="url(#tg)" opacity=".5"/>`; }
   return s + '</svg>';
 }
+// ------------------------------------------------------------- campaign
+const CAMP_KEY = 'ecb_campaign_v1';
+const camp = () => get(CAMP_KEY);
+const campActive = c => !!(c && (c.stage === 'play' || c.stage === 'debrief'));
+const opName = (c, n) => `Operation ${n} of ${c.len}`;
+function newCampaign(len) {
+  const id = (titleOpts.seed || Math.floor(Math.random() * 1e9).toString(36).toUpperCase()).slice(0, 12);
+  const c = { v:1, id, len, cmd:titleOpts.cmd, diff:titleOpts.diff, op:1, stage:'play', results:[], fallen:[], carry:null, wins:0, losses:0, outcome:null };
+  put(CAMP_KEY, c); startOp(c);
+}
+function startOp(c) { startGame({ cmd:c.cmd, diff:c.diff, seed:`${c.id}-${c.op}`, camp:{ id:c.id, op:c.op, len:c.len }, carry:c.carry }); }
+// called when an operation ends: log it, decide whether the campaign goes on, and work out what carries over
+function recordOp() {
+  const c = camp(); if (!S || !S.camp || !c || c.id !== S.camp.id) return c;
+  if (S.campRecorded || c.op !== S.camp.op || c.stage !== 'play') return c;
+  S.campRecorded = true; const o = S.over;
+  c.results.push({ op:c.op, title:o.title, win:!!o.win, score:o.score || 0, weeks:S.turn, kia:S.stats.kia || 0, path:S.path.name, pz:E.RD[S.pz].name, refit:c.carry && c.carry.refit || null });
+  if (o.win) c.wins++; else c.losses++;
+  for (const f of (S.stats.fallenCdrs || [])) c.fallen.push(Object.assign({ op:c.op }, f));
+  const goesOn = E.campaignGoesOn(o, c.losses);
+  if (goesOn && c.op < c.len) { c.stage = 'debrief'; c.carry = E.campaignCarry(S); }
+  else {
+    c.stage = 'over'; c.outcome = o.title === 'Run Abandoned' ? 'abandoned' : !goesOn ? 'failed' : c.losses ? 'complete' : 'victory';
+    c.score = Math.round(c.results.reduce((a, r) => a + r.score, 0) * (c.outcome === 'victory' ? E.CAMPAIGN.bonus : 1));
+    const mt = meta(); mt.camps = (mt.camps || 0) + 1; if (c.outcome === 'victory' || c.outcome === 'complete') mt.campWins = (mt.campWins || 0) + 1; mt.bestCamp = Math.max(mt.bestCamp || 0, c.score); put(META_KEY, mt);
+  }
+  put(CAMP_KEY, c); return c;
+}
+function opRows(c) {
+  return `<div class="oprows">${Array.from({ length:c.len }, (_, i) => { const r = c.results[i];
+    return r ? `<div class="oprow ${r.win ? 'w' : 'l'}"><span class="mono">OP ${r.op}</span><span><b>${esc(r.title)}</b><br><span class="note">${esc(r.path)} from ${esc(r.pz)} · ${r.weeks} weeks · ${r.kia.toLocaleString()} lost</span></span><span class="mono">${r.score.toLocaleString()}</span></div>`
+      : `<div class="oprow next"><span class="mono">OP ${i + 1}</span><span class="note">${i === c.results.length && c.stage !== 'over' ? 'Next' : 'Not played'}</span><span></span></div>`; }).join('')}</div>`;
+}
+function memorialHTML(c) {
+  if (!c.fallen.length) return '';
+  return `<div class="sec"><span class="lbl">In memory</span><ul class="memlist">${c.fallen.map(f => `<li>${esc(f.name)} <span class="note">· ${esc(f.unit)} · Op ${f.op}, week ${f.week}</span></li>`).join('')}</ul></div>`;
+}
+function carryHTML(c) {
+  const k = c.carry; if (!k) return '';
+  const bns = E.BNS.map(b => { const v = k.vet[b]; const rk = E.RANKS[E.rankIdxOf(v.xp)]; const tr = E.TRAITS[v.cdr.trait];
+    return `<div class="crow"><span><b>${esc(E.UNITS[b].name)}</b><br><span class="note">${esc(v.cdr.name)} · ${esc(tr ? tr.name : '')}</span></span><span class="mono">${rk.name}<br><span class="note">${Math.round(v.xp)} XP</span></span><span class="mono">${Math.round(k.u[b] * 100)}%</span></div>`; }).join('');
+  const others = Object.keys(k.u).filter(u => !E.BNS.includes(u)); const lowest = Math.min(...others.map(u => k.u[u]));
+  const hl = Object.keys(k.heloMax).map(h => `${k.helo[h]}/${k.heloMax[h]} ${({ attack:'attack', multi:'multirole', heavy:'heavy' })[h]}`).join(' · ');
+  return `<div class="sec"><span class="lbl">Your brigade going into ${opName(c, c.op + 1)}</span>
+    <div class="crows"><div class="crow hd"><span>Battalion</span><span>Rank</span><span>Strength</span></div>${bns}</div>
+    <p class="note" style="margin-top:6px">Other units at ${Math.round(lowest * 100)}% or better. Helicopters: ${hl}. Starting Trust ${k.trust}, Morale ${k.morale}.</p>
+    <p class="note">Doctrines kept: ${k.doct.length ? k.doct.map(d => esc(E.DOCTRINES[d].name)).join(', ') : 'none yet'}.</p>
+    <p class="note" style="color:#ff9a8e">The next outbreak is ${Math.round(E.CAMPAIGN.escal * c.op * 100)}% more infectious than the first.</p></div>`;
+}
+function showDebrief() {
+  const c = camp(); if (!c || c.stage !== 'debrief') return showTitle();
+  const last = c.results[c.results.length - 1];
+  // three refit options, picked from the campaign seed so they don't change on reload
+  let h = 7; for (const ch of c.id + c.op) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const ids = Object.keys(E.REFITS).sort((a, b) => ((h ^ a.length * 2654435761) % 97) - ((h ^ b.length * 2654435761) % 97) || a.localeCompare(b));
+  const pickIds = []; for (let i = 0; pickIds.length < 3 && i < 20; i++) { const id = ids[(h + i * 7) % ids.length]; if (!pickIds.includes(id)) pickIds.push(id); }
+  const m = openModal(`<div class="crisis-art">${ART.svg(last.win ? 'rotation' : 'cine_memorial', last.win ? 'LOGISTICS' : 'COMMAND', '', true)}</div>
+    <div class="dlg-h"><div><div class="k" style="color:var(--amber)">Campaign · ${opName(c, c.op)} · record ${c.wins}–${c.losses}</div><h2>Between operations</h2></div></div>
+    <div class="dlg-b">${opRows(c)}${carryHTML(c)}${memorialHTML(c)}
+      <div class="sec"><span class="lbl">Refit before the next deployment · pick one</span><div class="opts">${pickIds.map((id, i) => `<button class="opt" data-r="${id}"><span class="num">${i + 1}</span><span><span class="ol">${esc(E.REFITS[id].name)}</span><div class="of">${esc(E.REFITS[id].text)}</div></span></button>`).join('')}</div></div>
+      ${c.losses ? `<p class="note" style="color:#ff9a8e">One more failed operation ends the campaign.</p>` : ''}</div>`, 'wide', k => { const id = pickIds[+k - 1]; if (id) go(id); });
+  const go = id => { const c2 = camp(); c2.carry = E.applyRefit(c2.carry, id); c2.op++; c2.stage = 'play'; put(CAMP_KEY, c2); toast(`${E.REFITS[id].name}. ${opName(c2, c2.op)} begins.`); startOp(c2); };
+  for (const b of $$('.opt[data-r]', m)) b.onclick = () => go(b.dataset.r);
+}
+function showCampaignEnd() {
+  const c = camp(); if (!c) return showTitle();
+  const T = { victory:['Campaign won', 'Every operation succeeded. Score ×' + E.CAMPAIGN.bonus + '.', 'var(--good)'], complete:['Campaign complete', `${c.wins} of ${c.len} operations succeeded.`, 'var(--good)'], failed:['Campaign lost', 'The campaign ended early.', 'var(--hostile)'], abandoned:['Campaign abandoned', 'You handed over command.', 'var(--hostile)'] }[c.outcome] || ['Campaign over', '', 'var(--amber)'];
+  const weeks = c.results.reduce((a, r) => a + r.weeks, 0), kia = c.results.reduce((a, r) => a + r.kia, 0);
+  const m = openModal(`<div class="crisis-art">${ART.svg(c.outcome === 'victory' || c.outcome === 'complete' ? 'cine_home' : 'cine_memorial', c.outcome === 'victory' || c.outcome === 'complete' ? 'CIVIL' : 'COMMAND', '', true)}</div>
+    <div class="dlg-h"><div><div class="k" style="color:${T[2]}">Campaign · ${c.len} operations · ${esc(E.CMD[c.cmd].name)} · ${E.DIFFS[c.diff].name}</div><h2>${T[0]}</h2></div></div>
+    <div class="dlg-b"><p>${esc(T[1])}</p>
+      <div class="sit-top"><div class="stat"><span class="lbl">Campaign score</span><span class="v mono" style="color:var(--amber)">${(c.score || 0).toLocaleString()}</span></div>
+        <div class="stat"><span class="lbl">Record</span><span class="v mono">${c.wins}–${c.losses}</span></div><div class="stat"><span class="lbl">Weeks</span><span class="v mono">${weeks}</span></div>
+        <div class="stat"><span class="lbl">Brigade losses</span><span class="v mono">${kia.toLocaleString()}</span></div><div class="stat"><span class="lbl">Best campaign</span><span class="v mono">${(meta().bestCamp || 0).toLocaleString()}</span></div></div>
+      ${opRows(c)}${memorialHTML(c)}</div>
+    <div class="dlg-f"><button class="btn" id="b-ctitle">Title screen</button></div>`, 'wide');
+  $('#b-ctitle', m).onclick = () => { const c2 = camp(); if (c2) { c2.stage = 'archived'; put(CAMP_KEY, c2); } showTitle(); };
+}
+function showCampaignStart() {
+  const m = openModal(`<div class="dlg-h"><div><div class="k" style="color:var(--amber)">${esc(E.CMD[titleOpts.cmd].name)} · ${E.DIFFS[titleOpts.diff].name}</div><h2>Start a campaign</h2></div><button class="hbtn" id="b-x">Close</button></div>
+    <div class="dlg-b"><ul class="clist">
+      <li>Fight several outbreaks in a row with the same brigade and commander.</li>
+      <li>Your three maneuver battalions keep their <b>experience and commanders</b>. Lost soldiers are only partly replaced, so losses carry over.</li>
+      <li><b>Doctrines</b> you adopt stay for the whole campaign. Lost helicopters come back one at a time.</li>
+      <li>Between operations you pick one refit: replacements, training, new airframes, political capital or stocks.</li>
+      <li>Each new outbreak is 5% more infectious than the last.</li>
+      <li>The campaign ends early if the brigade is wiped out, mutinies or you are relieved, or after a second failed operation. Win every operation for a ×${E.CAMPAIGN.bonus} campaign score.</li></ul>
+      <div class="opts">${E.CAMPAIGN.lens.map((n, i) => `<button class="opt" data-n="${n}"><span class="num">${n}</span><span><span class="ol">${n} operations</span><div class="of">${['A short campaign, about an evening.', 'A full tour.', 'The long war.'][i]}</div></span></button>`).join('')}</div></div>`, '', k => { const n = E.CAMPAIGN.lens[+k - 1]; if (n) newCampaign(n); });
+  $('#b-x', m).onclick = closeModal;
+  for (const b of $$('.opt[data-n]', m)) b.onclick = () => newCampaign(+b.dataset.n);
+}
 function showTitle() {
-  closeModal(); const sv = get(SAVE_KEY); const mt = meta();
+  closeModal(); const sv = get(SAVE_KEY); const mt = meta(); const cp = camp();
   const hardOK = mt.maxWeeks >= 20;
   if (titleOpts.cmd === 'hard' && !hardOK) titleOpts.cmd = 'mech';
   $('#root').innerHTML = `<div class="title"><div class="title-in">
     <div class="t-hero"><div><div class="t-logo">ECB<span>OUTBREAK</span></div>
       <p class="t-tag">A plague is loose and the dead are walking. You command the <b>Expeditionary Combat Brigade</b>: 4,800 soldiers, a fleet of modular combat vehicles, eleven helicopters and a drone squadron. You don't fight alone: every region's own army and police do most of the fighting. The ECB moves fast, reinforces them where they are breaking, and brings the specialists they lack. Draw orders, make hard calls, and hold the world together until the labs finish a cure.</p>
-      <div class="t-go">${sv && !sv.over ? `<button class="btn" id="t-cont">Continue week ${sv.turn}</button>` : ''}<button class="btn ${sv && !sv.over ? 'ghost' : ''}" id="t-start">${sv && !sv.over ? 'New run' : 'Start run'}</button><button class="btn ghost" id="t-how">How to play</button><button class="btn ghost" id="t-film">Watch intro</button></div>
+      <div class="t-go">${campActive(cp) ? `<button class="btn" id="t-camp-cont">Continue campaign · ${cp.stage === 'debrief' ? `Op ${cp.op} of ${cp.len} done` : `Op ${cp.op} of ${cp.len}${sv && !sv.over && sv.camp && sv.camp.id === cp.id ? ` · week ${sv.turn}` : ''}`}</button><button class="btn ghost" id="t-camp-quit">Abandon campaign</button>`
+        : `${sv && !sv.over ? `<button class="btn" id="t-cont">Continue week ${sv.turn}</button>` : ''}<button class="btn ${sv && !sv.over ? 'ghost' : ''}" id="t-start">${sv && !sv.over ? 'New run' : 'Start run'}</button><button class="btn ghost" id="t-camp">Start campaign</button>`}<button class="btn ghost" id="t-how">How to play</button><button class="btn ghost" id="t-film">Watch intro</button></div>
       <label class="t-chk" for="t-intro"><input type="checkbox" id="t-intro" ${introOn() ? 'checked' : ''}> Play the opening and ending movies</label></div>
       <div>${titleMap()}</div></div>
     <div class="t-sec"><h3>Choose your commander</h3><div class="cmds">${E.COMMANDERS.map(c => { const locked = c.unlock && !hardOK; return `<button class="cmd" data-c="${c.id}" aria-pressed="${titleOpts.cmd === c.id}" ${locked ? 'disabled' : ''}><span class="tt">${esc(c.title)}</span><span class="nm">${esc(c.name)}</span><span class="bl">${esc(locked ? 'Locked. ' + c.unlock + ' to unlock.' : c.blurb)}</span></button>`; }).join('')}</div></div>
     <div class="t-sec t-row"><label><span class="lbl">Difficulty</span><div class="seg" id="t-diff">${Object.entries(E.DIFFS).map(([k, d]) => `<button data-d="${k}" aria-pressed="${titleOpts.diff === k}">${d.name}</button>`).join('')}</div></label>
       <label for="t-seed"><span class="lbl">Seed (optional)</span><input id="t-seed" placeholder="random" value="${esc(titleOpts.seed)}" maxlength="16" autocomplete="off"></label></div>
     <div class="note" id="t-diffnote" style="margin-top:8px"></div>
-    <div class="records"><span>Runs <span class="mono">${mt.runs}</span></span><span>Cures found <span class="mono">${mt.wins}</span></span><span>Best score <span class="mono">${mt.best.toLocaleString()}</span></span><span>Longest run <span class="mono">${mt.maxWeeks} weeks</span></span></div>
+    <div class="records"><span>Runs <span class="mono">${mt.runs}</span></span><span>Cures found <span class="mono">${mt.wins}</span></span><span>Best score <span class="mono">${mt.best.toLocaleString()}</span></span><span>Longest run <span class="mono">${mt.maxWeeks} weeks</span></span>${mt.camps ? `<span>Campaigns <span class="mono">${mt.campWins || 0}/${mt.camps}</span></span><span>Best campaign <span class="mono">${(mt.bestCamp || 0).toLocaleString()}</span></span>` : ''}</div>
   </div></div>`;
   const notes = { recruit:'Recruit: start here. Slower pathogen, stronger resupply, faster labs.', veteran:'Veteran: the intended challenge.', nightmare:'Nightmare: two outbreak origins, weak supply lines, faster pathogen. Score ×1.5.' };
   const upd = () => { $('#t-diffnote').textContent = notes[titleOpts.diff]; };
@@ -920,7 +1019,11 @@ function showTitle() {
   for (const b of $$('.cmd')) b.onclick = () => { titleOpts.cmd = b.dataset.c; for (const x of $$('.cmd')) x.setAttribute('aria-pressed', x === b); };
   for (const b of $$('#t-diff button')) b.onclick = () => { titleOpts.diff = b.dataset.d; for (const x of $$('#t-diff button')) x.setAttribute('aria-pressed', x === b); upd(); };
   $('#t-seed').oninput = e => titleOpts.seed = e.target.value.trim();
-  $('#t-start').onclick = () => startGame({ cmd:titleOpts.cmd, diff:titleOpts.diff, seed:titleOpts.seed || undefined });
+  const ts = $('#t-start'); if (ts) ts.onclick = () => startGame({ cmd:titleOpts.cmd, diff:titleOpts.diff, seed:titleOpts.seed || undefined });
+  const tc = $('#t-camp'); if (tc) tc.onclick = showCampaignStart;
+  const tcc = $('#t-camp-cont'); if (tcc) tcc.onclick = () => { const c2 = camp(); if (c2.stage === 'debrief') return showDebrief(); if (sv && !sv.over && sv.camp && sv.camp.id === c2.id && sv.camp.op === c2.op) { S = E.migrate(sv); enterGame(); } else startOp(c2); };
+  const tcq = $('#t-camp-quit'); if (tcq) tcq.onclick = () => { if (!tcq.classList.contains('arm')) { tcq.classList.add('arm'); tcq.textContent = 'Tap again to abandon'; return; }
+    const c2 = camp(); c2.stage = 'over'; c2.outcome = 'abandoned'; c2.score = c2.results.reduce((a, r) => a + r.score, 0); put(CAMP_KEY, c2); if (sv && sv.camp && sv.camp.id === c2.id) drop(SAVE_KEY); showCampaignEnd(); };
   $('#t-how').onclick = showHowTo;
   $('#t-intro').onchange = e => { try { localStorage.setItem('ecb_intro', e.target.checked ? '1' : '0'); } catch (x) {} };
   $('#t-film').onclick = () => { const demo = E.newGame({ cmd:titleOpts.cmd, diff:titleOpts.diff, seed:titleOpts.seed || undefined }); CINE.play(demo, showTitle); };

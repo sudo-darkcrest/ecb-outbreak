@@ -364,7 +364,7 @@ b{color:#fff;font-weight:700}
 .cm-r{transition:fill 1.2s ease}
 .cm-pulse{transform-box:fill-box;transform-origin:center;animation:cpulse 1.4s ease-out infinite}
 @keyframes cpulse{0%{transform:scale(.6);opacity:.9}100%{transform:scale(4.2);opacity:0}}
-.cm-arc{fill:none;stroke:#ff5a3a;stroke-width:1.4;stroke-dasharray:260;stroke-dashoffset:260;animation:draw 1s ease-out forwards}
+.cm-arc{fill:none;stroke:#ff5a3a;stroke-width:1.4;stroke-dasharray:1;stroke-dashoffset:1;animation:draw 1s ease-out forwards}
 @keyframes draw{to{stroke-dashoffset:0}}
 .c-day{position:absolute;left:max(24px,5vw);top:12vh;font-size:clamp(18px,2.6vw,34px);color:#ff7a5a;letter-spacing:.2em;font-weight:700}
 .ticker{position:absolute;left:0;right:0;bottom:calc(8vh + 8px);height:34px;background:#b3261d;color:#fff;overflow:hidden;display:flex;align-items:center;font-family:var(--f-mono);font-size:13px;letter-spacing:.08em;white-space:nowrap;z-index:2}
@@ -478,6 +478,23 @@ b{color:#fff;font-weight:700}
 .c-mem li{animation:slidein .45s ease-out both}
 .c-mem li.all{color:var(--amber);margin-top:4px}
 .end-win .ticker{background:#1f6b46}
+@media (prefers-reduced-motion:reduce){ .cm-arc{stroke-dashoffset:0} }
+
+/* campaign */
+.oprows{display:flex;flex-direction:column;gap:6px;margin:4px 0 12px}
+.oprow{display:grid;grid-template-columns:52px 1fr auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line2);border-radius:6px;background:var(--panel2)}
+.oprow .mono{font-size:12px;color:var(--dim)}
+.oprow.w{border-left:3px solid var(--good)} .oprow.l{border-left:3px solid var(--hostile)} .oprow.next{opacity:.6;border-style:dashed}
+.oprow b{font-weight:700}
+.crows{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+.crow{display:grid;grid-template-columns:1fr 88px 72px;gap:10px;align-items:center;padding:6px 8px;border-bottom:1px solid var(--line)}
+.crow.hd{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--line2)}
+.crow .mono{text-align:right}
+.memlist{list-style:none;padding:0;margin:6px 0 0;display:flex;flex-direction:column;gap:3px;font-size:13px}
+.clist{margin:0 0 12px;padding-left:18px;display:flex;flex-direction:column;gap:5px;font-size:14px;color:var(--dim)}
+.clist b{color:var(--ink)}
+#t-camp-quit.arm{border-color:var(--hostile);color:#ff9a8e}
+@media (max-width:520px){ .crow{grid-template-columns:1fr 70px 56px} .oprow{grid-template-columns:44px 1fr auto} }
 
 </style>
 <div id="root"></div>
@@ -1627,11 +1644,49 @@ function newGame(opts) {
   s.nextSeed = rint(s, 4, 6);
   s.deck = { draw: shuffle(s, [...STARTER, ...CMD[cmd].extra]), hand:[], discard:[], exhausted:[], burned:[] };
   s.burnBank = 0;
+  if (opts.camp) applyCampaign(s, opts.camp, opts.carry);
   s.history.push(snapshot(s));
   startTurn(s);
   s.crisis = { id:'warno', ctx:{} };
   return s;
 }
+
+// ---------------------------------------------------------------- campaign mode
+// A campaign is 3–5 operations (runs) in a row. Battalions keep their experience, commanders and
+// (partly rebuilt) strength, doctrines stay adopted, and each new outbreak is a little nastier.
+const CAMPAIGN = { lens:[3, 4, 5], escal:.05, rebuild:.5, minStrength:.55, maxLosses:2, bonus:1.2 };
+const ENDS_CAMPAIGN = ['Brigade Combat Ineffective', 'Mutiny', 'Relieved of Command', 'Run Abandoned'];
+function applyCampaign(s, camp, carry) {
+  s.camp = { id:camp.id, op:camp.op, len:camp.len };
+  const k = 1 + CAMPAIGN.escal * (camp.op - 1);
+  s.path.inf *= k; s.path.spread *= k;
+  if (!carry) return;
+  const b = s.b;
+  for (const u in carry.u) if (u in b.u) b.u[u] = carry.u[u];
+  for (const h in carry.heloMax) { b.heloMax[h] = carry.heloMax[h]; b.helo[h] = Math.min(carry.heloMax[h], carry.helo[h]); }
+  b.vet = JSON.parse(JSON.stringify(carry.vet));
+  s.doct = carry.doct.slice();
+  b.trust = carry.trust; b.morale = carry.morale;
+  if (carry.supplyBonus) { b.supply += carry.supplyBonus; b.ammo += carry.supplyBonus; b.fuel += carry.supplyBonus; }
+}
+// what the brigade takes into the next operation (before the refit choice)
+function campaignCarry(s) {
+  const b = s.b, win = !!(s.over && s.over.win);
+  const u = {}; for (const k in b.u) u[k] = clamp(Math.max(CAMPAIGN.minStrength, b.u[k] + (1 - b.u[k]) * CAMPAIGN.rebuild), 0, 1);
+  const helo = {}; for (const k in b.heloMax) helo[k] = Math.min(b.heloMax[k], b.helo[k] + 1);
+  return { u, helo, heloMax:Object.assign({}, b.heloMax), vet:JSON.parse(JSON.stringify(b.vet)), doct:(s.doct || []).slice(),
+    trust:Math.round(clamp((win ? 70 : 50) + (b.trust - 60) * .3, 35, 90)), morale:Math.round(clamp((win ? 82 : 66) + (b.morale - 80) * .2, 40, 95)), supplyBonus:0 };
+}
+const REFITS = {
+  replace: { name:'Replacements',      text:'Every unit gets 15% more of its strength back.', apply:c => { for (const k in c.u) c.u[k] = Math.min(1, c.u[k] + .15); } },
+  train:   { name:'Training cycle',    text:'Each maneuver battalion gains 25 experience.',   apply:c => { for (const k of BNS) c.vet[k].xp += 25; } },
+  air:     { name:'New airframes',     text:'Every lost helicopter is replaced.',             apply:c => { for (const k in c.heloMax) c.helo[k] = c.heloMax[k]; } },
+  capital: { name:'Political capital', text:'Command Trust +15 and Morale +10 to start.',     apply:c => { c.trust = Math.min(100, c.trust + 15); c.morale = Math.min(100, c.morale + 10); } },
+  stocks:  { name:'Prepositioned stocks', text:'Start with +25 supply, ammo and fuel.',       apply:c => { c.supplyBonus = 25; } },
+};
+function applyRefit(carry, id) { const c = JSON.parse(JSON.stringify(carry)); if (REFITS[id]) REFITS[id].apply(c); c.refit = id; return c; }
+// does this ending let the campaign go on?
+function campaignGoesOn(over, lossesSoFar) { if (!over) return true; if (ENDS_CAMPAIGN.includes(over.title)) return false; return over.win || lossesSoFar < CAMPAIGN.maxLosses; }
 function cpMax(s) { const b = s.b; let c = 3; if (b.u.hq > .5 && b.en.comms) c++; if (b.morale < 25) c--; if (s.cmd === 'hard') c++; if (hasD(s, 'staff') && b.morale >= 60) c++; return Math.max(1, c); }
 // bring older saves up to date
 function migrate(s) {
@@ -1919,7 +1974,7 @@ function score(s) {
 
 return { REGIONS, RD, LINKS, ADJ, UNITS, ENABLERS, NOMINAL, NOMINAL_TOTAL, START_POP, DIFFS, COMMANDERS, CMD, CARDS, EVENTS, POSTURES, MUTATIONS,
   RESTORE_WEEKS, RESTORE_REQ, restoreReady, restoredCount, avgVax, beginRestoration, endAtCure,
-  STAB, canStabilize, presentIn, hnBolster, hnLabel, hnBase, MIN_DECK, burnValue, canBurn, burnCard, SORTIES, WORKS, canSortie, flySortie, canBuild, buildWork, worksIn, engCrew, airWorst,
+  CAMPAIGN, ENDS_CAMPAIGN, REFITS, campaignCarry, applyRefit, campaignGoesOn, rankIdxOf:(xp) => RANKS.reduce((a, r, i) => xp >= r.xp ? i : a, 0), STAB, canStabilize, presentIn, hnBolster, hnLabel, hnBase, MIN_DECK, burnValue, canBurn, burnCard, SORTIES, WORKS, canSortie, flySortie, canBuild, buildWork, worksIn, engCrew, airWorst,
   DOCTRINES, RANKS, TRAITS, CHOKE, CHOKE_LOSS, HEMI, BNS, TF_RANGE, hasD, takeDoctrine, mainBns, allMan, rankIdx, vetOf, vetKillOne, vetCas,
   tfCandidate, tfCost, canSendTF, sendTF, recallCost, canRecallTF, recallTF, monthOf, seasonOf, seasonMult, chokesLost, caps,
   baseId, isUp, def, costOf, canUpgrade, cardName, migrate,
@@ -2570,6 +2625,12 @@ ${[-23, -17, -11, -5, 1, 7, 13, 19].map(x => `<ellipse cx="${x + 2}" cy="-14.8" 
 <path d="M5.8 -8.8 L3 0 L4.2 0 L6.4 -6.8 L8.8 0 L10 0 Z"/><rect x="4.2" y="-10.4" width="3" height="1.6" ${F('d3')}/><rect x="2.6" y="-12" width="2.2" height="1.6" ${F('d2')}/><rect x="3.6" y="-11.6" width=".6" height=".6" ${A(.85)}/></g>
 <g id="s-cage" fill="none" stroke="currentColor" stroke-width=".9"><rect x="-10" y="-22" width="20" height="22"/><path d="M-6 -22 V0 M-2 -22 V0 M2 -22 V0 M6 -22 V0 M-10 -11 H10"/><path d="M-11 -22.6 H11 M-11 .4 H11" stroke-width="1.4"/><rect x="7.4" y="-12.4" width="2" height="2.4" fill="currentColor" stroke="none"/></g>
 <g id="s-mush"><path d="M-3.6 0 Q-2 -14 -4.6 -21 Q-15 -21 -15 -28 Q-15 -37 0 -37 Q15 -37 15 -28 Q15 -21 4.6 -21 Q2 -14 3.6 0 Z"/><path d="M-13 -28 Q-12 -35 -4 -35.6 Q-8 -32 -6 -28 Q-10 -25 -13 -28 Z M2 -35.4 Q10 -35 12.6 -29 Q8 -30 6 -33 Z" fill="#ffe6b0" opacity=".55"/><path d="M-15 -27 Q-8 -22 0 -22.6 Q8 -22 15 -27 Q14 -21 4.6 -21 L-4.6 -21 Q-14 -21 -15 -27 Z" fill="#b8481a" opacity=".5"/><path d="M-1.6 -18 Q-.6 -9 -2 0" fill="none" stroke="#ffe6b0" stroke-width=".8" opacity=".5"/><ellipse cx="0" cy="-15" rx="10" ry="1.6" fill="none" stroke="#ffe6b0" stroke-width=".8" opacity=".4"/></g>
+<g id="s-bcross">
+<path d="M-.55 -21 H.55 V-4.2 H-.55 Z"/><path d="M-1.2 -13.4 H1.2 L1.1 -8.6 H-1.1 Z"/><path d="M-.9 -6 H.9 L1.4 -4.4 H-1.4 Z"/><path d="M-.35 -4.4 L.35 -4.4 L0 -.6 Z"/>
+<path d="M-3.9 -20.6 Q-3.8 -25.4 0 -25.6 Q3.8 -25.4 3.9 -20.6 Z"/><rect x="-4.5" y="-21.2" width="9" height="1" rx=".45"/><path d="M-3.2 -23.2 Q0 -25 3.2 -23.2" ${AS(.35, .45)}/>
+<path d="M-6 0 V-3.6 Q-6 -4.4 -5.1 -4.4 H-3.1 L-2.9 -1.4 L-1.4 -.4 V0 Z"/><path d="M6 0 V-3.6 Q6 -4.4 5.1 -4.4 H3.1 L2.9 -1.4 L1.4 -.4 V0 Z"/>
+<rect x="-1.6" y="-17.4" width="3.2" height="2.2" rx=".3" ${F('d3')}/>
+</g>
 <g id="s-flag"><rect x="-.6" y="-26" width="1.2" height="26"/><circle cx="0" cy="-26.4" r=".9"/><path d="M.6 -25.4 Q6 -28 11 -25 Q16 -22 21 -24 V-15 Q16 -13 11 -16 Q6 -19 .6 -16.4 Z" style="fill:var(--acc)"/><path d="M.6 -22.4 Q6 -25 11 -22 Q16 -19 21 -21 M.6 -19.4 Q6 -22 11 -19 Q16 -16 21 -18" fill="none" stroke="#000" stroke-width=".9" opacity=".22"/><path d="M.6 -25.4 Q4 -27 7.4 -26.2 V-20.2 Q4 -21.4 .6 -20.2 Z" fill="#000" opacity=".25"/><path d="M11 -25 Q13 -24 15 -23.4 V-14.6 Q13 -15 11 -16 Z" fill="#fff" opacity=".12"/></g>
 <g id="s-lamp"><circle r="2" fill="#fff3c4"/><circle r="4.4" fill="#fff3c4" opacity=".18"/></g>
 <g id="s-pine"><rect x="-.4" y="-2.6" width=".8" height="2.6"/><path d="M0 -16 L-2.4 -11 L-1.2 -11 L-3.6 -6.4 L-2 -6.4 L-4.8 -2.4 L4.8 -2.4 L2 -6.4 L3.6 -6.4 L1.2 -11 L2.4 -11 Z"/></g>
@@ -2714,7 +2775,7 @@ const SC = {
   pattern: [['bg','room'],['u','map',84,36,2],['u','officer',146,72,1.5,{f:1}],['u','soldier',18,72,1.4]],
   patient_zero: [['bg','room'],['u','map',72,38,1.85],['u','reticle',110,48,.9],['u','flask',144,72,1.8],['u','bio',20,26,1.3,{o:.6}]],
   // ===== research / medical
-  escort: [['bg','farcity'],['u','lab',122,72,1.4],['u','ml',46,72,.95,{o:.85}],['u','soldier',16,72,1.45],['u','civ',38,72,1.45],['u','civ',54,72,1.35],['u','soldier',74,72,1.45]],
+  escort: [['bg','farcity'],['u','lab',134,72,1.25],['u','ml',30,72,.9],['u','soldier',64,72,1.4],['u','civ',80,72,1.4],['u','civ',94,72,1.3],['u','soldier',110,72,1.4,{f:1}]],
   decon: [['bg','field'],['u','tent',110,72,2.1],['u','bio',110,40,1.1],['u','soldier',58,72,1.55],['rect',22,36,4,36],['line',26,40,52,54,.5,'var(--acc)'],['line',26,44,54,58,.5,'var(--acc)'],['line',26,48,50,62,.5,'var(--acc)']],
   specimen: [['bg','room'],['g',80,54,32,'red'],['u','cage',80,72,2.1],['u','zombie',82,72,1.75],['u','soldier',30,72,1.5],['u','soldier',132,72,1.5,{f:1}]],
   fst: [['bg','field'],['g',80,50,42,'fire'],['u','tent',80,72,2.6],['u','redx',80,48,1.8],['u','soldier',26,72,1.45],['u','soldier',136,72,1.45,{f:1}]],
@@ -2723,7 +2784,7 @@ const SC = {
   forage: [['bg','ruins'],['u','truck',122,73,1.4],['u','soldier',26,72,1.45],['u','crate',40,57,1.1],['u','soldier',60,72,1.45],['u','crate',74,57,1.1],['u','drum',90,72,1.5]],
   requisition: [['bg','farcity'],['u','crate',34,72,2.5],['u','crate',60,72,2.5],['u','crate',47,52,2.5],['u','star',47,42,.75,{c:'acc'}],['u','truck',126,73,1.35]],
   fuel_point: [['bg','desert'],['g',140,28,26,'sun'],['u','tanker',44,73,1.4],['u','ifv',128,72,1.15,{f:1}],['line',75,64,100,62,1,'#05080a'],['u','drum',90,72,1.4],['u','drum',98,72,1.4]],
-  maint: [['bg','field'],['g',92,46,34,'fire'],['u','hr',44,72,1.0],['u','ifv',126,72,.8,{r:-5}],['smoke',132,56,.55],['u','kneel',96,72,1.15],['u','wrench',150,22,.9],['u','gear',18,20,.9]],
+  maint: [['bg','field'],['g',92,46,34,'fire'],['u','hr',44,72,1.0],['u','ifv',132,72,.8,{r:-5}],['smoke',138,56,.55],['u','kneel',88,72,1.15],['u','wrench',150,22,.9],['u','gear',18,20,.9]],
   cache: [['bg','sea'],['g',26,56,28,'sun'],['u','ship',110,66,1.35],['u','crate',22,72,1.8],['u','crate',40,72,1.8],['u','crate',31,57.6,1.8]],
   // ===== civil
   safe_zone: [['bg','farcity'],['g',80,58,42],['u','wall',46,72,1.7],['u','wall',114,72,1.7],['u','tower',12,72,1.4],['u','tower',148,72,1.4],['u','shield',80,38,1.6]],
@@ -2731,10 +2792,10 @@ const SC = {
   psa: [['bg','city'],['u','mast',80,72,1.55],['waves',80,4,4],['crowd',12,60,72,4,1.25],['crowd',100,148,72,4,1.25]],
   partner: [['bg','farcity'],['g',80,50,24],['u','soldier',68,72,1.9],['u','soldier',94,72,1.9,{f:1}],['u','ul',22,73,.8,{o:.75}],['u','pickup',140,73,1.1,{o:.8,f:1}]],
   borders: [['bg','field'],['horde',14,60,72,4,1.15,1],['u','fence',36,72,1.45],['u','fence',94,72,1.45],['u','tower',142,72,1.45]],
-  refugee_camp: [['bg','field'],['g',80,56,42],['u','tent',26,72,1.3],['u','tent',66,72,1.55],['u','tent',110,72,1.3],['u','tent',146,72,1.2],['crowd',44,128,72,4,1.15]],
+  refugee_camp: [['bg','field'],['g',80,56,42],['u','tent',26,72,1.3],['u','tent',66,72,1.55],['u','tent',108,72,1.3],['u','tent',142,72,1.05],['crowd',44,126,72,4,1.15]],
   // ===== command
-  cine_home: [['bg','field'],['rays',80,52],['u','plane',118,50,1.25,{o:.8}],['crowd',4,46,72,5,1.35],['u','soldier',62,72,1.5,{f:1}],['u','soldier',80,72,1.5,{f:1}],['u','soldier',98,72,1.5,{f:1}],['u','flag',150,72,1.35]],
-  cine_memorial: [['stars',4],['bg','field'],['rays',80,46],['g',80,58,34],['u','flag',80,72,1.9],['u','kneel',52,72,1.5],['u','kneel',108,72,1.5,{f:1}],['u','soldier',28,72,1.5],['u','soldier',132,72,1.5,{f:1}]],
+  cine_home: [['bg','field'],['rays',80,52],['u','plane',112,46,1.1,{c:'mid'}],['crowd',4,46,72,5,1.35],['u','cheer',66,72,1.5,{f:1}],['u','officer',84,72,1.5,{f:1}],['u','cheer',102,72,1.5,{f:1}],['u','flag',132,72,1.1]],
+  cine_memorial: [['stars',4],['bg','field'],['rays',80,46],['g',80,58,34],['u','flag',68,72,1.75],['u','bcross',22,72,1.3],['u','bcross',44,72,1.45],['u','bcross',114,72,1.45],['u','bcross',136,72,1.3]],
   train_hn: [['bg','field'],['g',92,54,30],['u','flag',9,72,1.4],['u','crate',24,72,1.5],['u','officer',44,72,1.8],['u','kneel',72,72,1.75],['u','prone',94,72,1.55],['u','soldier',129,72,1.7],['u','pole',152,72,.5],['u','reticle',152,52,.6]],
   rally: [['bg','field'],['rays',80,56],['u','ifv',80,72,1.35],['u','cheer',58,44,1.3],['u','cheer',22,72,1.5],['u','cheer',138,72,1.5,{f:1}]],
   intent: [['bg','room'],['u','map',88,34,1.9],['u','officer',26,72,1.7],['u','soldier',148,72,1.4,{f:1}]],
@@ -2762,9 +2823,9 @@ const SC = {
   rotation: [['bg','field'],['u','plane',92,44,1.7],['u','soldier',16,72,1.35],['u','soldier',32,72,1.35],['u','soldier',48,72,1.35],['u','soldier',134,72,1.35,{f:1}],['u','soldier',150,72,1.35,{f:1}]],
   tribunal: [['bg','room'],['rect',30,56,100,4],['u','officer',50,56,1.45],['u','officer',80,56,1.45],['u','officer',110,56,1.45,{f:1}],['u','shield',142,40,1.1]],
   // ===== cinematic openers
-  cine_flight: [['stars',3],['bg','field'],['g',136,60,28,'red'],['u','plane',72,66,1.75],['u','pickup',144,73,.85],['g',146,61,6,'red'],['u','soldier',126,72,1.05,{f:1}]],
+  cine_flight: [['stars',3],['bg','field'],['g',136,60,28,'red'],['u','plane',64,66,1.7],['u','pickup',146,73,.8],['g',148,61,6,'red'],['u','soldier',124,72,1.05,{f:1}]],
   cine_lab: [['stars',5],['bg','farcity'],['g',80,56,52,'red'],['u','lab',80,72,1.65],['u','zombie',38,72,1.2,{o:.75}],['u','zombie',124,72,1.1,{o:.55}]],
-  cine_camp: [['stars',6],['g',132,18,14,'moon'],['bg','field'],['g',72,66,26,'fire'],['u','tent',26,72,1.3],['u','tent',104,72,1.5],['u','tent',146,72,1.2],['u','flame',70,72,.9],['crowd',46,88,72,3,1.05],['u','zombie',126,72,1.25,{o:.6}]],
+  cine_camp: [['stars',6],['g',132,18,14,'moon'],['bg','field'],['g',72,66,26,'fire'],['u','tent',26,72,1.3],['u','tent',100,72,1.45],['u','tent',146,72,.95],['u','flame',70,72,.9],['crowd',46,88,72,3,1.05],['u','zombie',126,72,1.2,{o:.7}]],
   // ===== MCV-L scouts
   scout_screen: [['bg','hills'],['beam',53,31,8,84,11],['u','ml',48,72,1.3],['u','reticle',126,52,1.05],['horde',112,152,72,3,1.15]],
   lost_patrol: [['stars',4],['bg','ruins'],['g',72,58,30,'red'],['u','ml',70,72,1.25,{r:4}],['waves',72,30,3],['horde',4,30,72,3,1.2,1],['horde',112,156,72,4,1.3]],
@@ -3037,7 +3098,7 @@ function spreadRing(ids, from, color, delay) {
     if (!root) return; const p = root.querySelector(`.cm-r[data-id="${id}"]`); if (p) p.setAttribute('fill', color);
     const g = root.querySelector('#cm-arcs'); if (!g) return;
     const [x1, y1] = E.RD[from].a, [x2, y2] = E.RD[id].a; const mx = (x1 + x2) / 2, my = (y1 + y2) / 2 - Math.hypot(x2 - x1, y2 - y1) * .25;
-    const a = document.createElementNS('http://www.w3.org/2000/svg', 'path'); a.setAttribute('d', `M${x1},${y1} Q${mx},${my} ${x2},${y2}`); a.setAttribute('class', 'cm-arc'); g.appendChild(a);
+    const a = document.createElementNS('http://www.w3.org/2000/svg', 'path'); a.setAttribute('d', `M${x1},${y1} Q${mx},${my} ${x2},${y2}`); a.setAttribute('class', 'cm-arc'); a.setAttribute('pathLength', '1'); g.appendChild(a);
     noise(.08, 'bandpass', 900 + i * 80, .08);
   }));
 }
@@ -3453,13 +3514,17 @@ function renderMap() {
     el('path', { d:'M0 -3.6 L3 -2.4 L3 .4 Q3 2.6 0 3.8 Q-3 2.6 -3 .4 L-3 -2.4 Z', fill:'#a9c9ff', stroke:'#0b1214', 'stroke-width':.8 }, g5); el('path', { d:'M-1.4 .1 L-.3 1.3 L1.6 -1.2', fill:'none', stroke:'#0b1214', 'stroke-width':.8 }, g5);
     const t5 = el('title', {}, g5); t5.textContent = `${r.name}: stabilized` + (E.presentIn(S, r.id) ? '' : `, ${rs.stab} weeks left`);
   }
+  const lblBox = id => { const g = $(`#g-lbl g[data-id="${id}"]`); let hw = 14, hw2 = 0; const lk = (g && g.children[0].getAttribute('font-size') / 6.6) || 1;
+    try { hw = g.children[0].getComputedTextLength() / 2; hw2 = g.children[1].textContent ? g.children[1].getComputedTextLength() / 2 : 0; } catch (e) {} return { hw, hw2, lk, shown:!g || g.style.display !== 'none' }; };
   for (const r of E.REGIONS) {
-    const sz = S.regions[r.id].sz; if (!sz) continue; const [x, y] = r.a; const o = LOFF[r.id] || [0,0];
-    for (let i = 0; i < sz; i++) el('rect', { x:x + o[0] - 14 - i * 4.2, y:y + o[1] - 5, width:3.2, height:3.2, rx:.6, fill:'#7fc28c', stroke:'#0b1214', 'stroke-width':.5 }, gM);
+    const sz = S.regions[r.id].sz; if (!sz) continue; const [x, y] = r.a; const o = LOFF[r.id] || [0,0]; const L = lblBox(r.id);
+    const g3 = el('g', { class:'szmk', transform:`translate(${x + o[0] - L.hw - 2 * L.lk},${y + o[1] - 2.3 * L.lk}) scale(${L.lk})` }, gM);
+    for (let i = 0; i < sz; i++) el('rect', { x:-3.6 - i * 4.2, y:-1.6, width:3.2, height:3.2, rx:.6, fill:'#7fc28c', stroke:'#0b1214', 'stroke-width':.5 }, g3);
+    const t3 = el('title', {}, g3); t3.textContent = `Safe zones: ${sz}/3`;
   }
   for (const r of E.REGIONS) {
-    const wk = E.worksIn(S, r.id); if (!wk.length) continue; const [x, y] = r.a; const o = LOFF[r.id] || [0,0];
-    const g4 = el('g', { class:'works', transform:`translate(${x + o[0] - 13},${y + o[1] + 3})` }, gM);
+    const wk = E.worksIn(S, r.id); if (!wk.length) continue; const [x, y] = r.a; const o = LOFF[r.id] || [0,0]; const L = lblBox(r.id);
+    const g4 = el('g', { class:'works', transform:`translate(${x + o[0] - Math.max(L.hw2, 6 * L.lk) - 5.5 * L.lk},${y + o[1] + 4.4 * L.lk}) scale(${L.lk})` }, gM);
     wk.forEach((k, i) => el('rect', { x:-i * 4.2, y:0, width:3.2, height:3.2, transform:`rotate(45 ${-i * 4.2 + 1.6} 1.6)`, fill:'#f0a53a', stroke:'#0b1214', 'stroke-width':.5 }, g4));
     const t4 = el('title', {}, g4); t4.textContent = 'Field works: ' + wk.map(k => E.WORKS[k].name).join(', ');
   }
@@ -3578,7 +3643,7 @@ function render() {
 }
 function renderHeader() {
   $('#h-week').textContent = String(S.turn).padStart(2, '0') + ' · ' + dateOf(S.turn);
-  const sn = E.seasonOf('N', E.monthOf(S.turn)); $('#h-season').textContent = `Week · ${sn} in the north`;
+  const sn = E.seasonOf('N', E.monthOf(S.turn)); $('#h-season').textContent = `${S.camp ? `Op ${S.camp.op}/${S.camp.len} · ` : ''}Week · ${sn} in the north`;
   const sv = E.survivors(S), z = E.infected(S), d = E.dead(S), prev = S.history[S.history.length - 2];
   const dS = prev ? sv - prev.h : 0;
   $('#h-stats').innerHTML = `
@@ -3702,7 +3767,7 @@ function restoreChecklist(rs) {
 const HN_COL = { Strong:'#7fc28c', Holding:'#a9c98f', Strained:'#e8c547', Breaking:'#ff9a5e', Collapsed:'#ff6a5e' };
 function hnRow(rs, id) {
   const v = rs.hn == null ? 1 : rs.hn; const lb = rs.fallen ? 'Collapsed' : E.hnLabel(v); const bol = rs.fallen ? 1 : E.hnBolster(S, id);
-  return `<dt title="The region's own army and police. They do most of the fighting.">Host forces</dt><dd style="color:${HN_COL[lb]}">${lb} · ${Math.round(v * 100)}%${bol > 1.001 ? ` <span style="color:var(--friend)" title="Your brigade makes them fight harder">+${Math.round((bol - 1) * 100)}% ECB</span>` : ''}</dd>`;
+  return `<dt title="The region's own army and police. They do most of the fighting.">Host forces</dt><dd style="color:${HN_COL[lb]}">${lb} · ${Math.round(v * 100)}%${bol > 1.001 ? ` <span style="color:var(--friend);white-space:nowrap" title="Your brigade makes them fight harder">+${Math.round((bol - 1) * 100)}% ECB</span>` : ''}</dd>`;
 }
 function stabChecklist(rs, id) {
   if (rs.fallen || rs.stab > 0) return '';
@@ -4112,6 +4177,7 @@ function showBoard() {
 function showGameOver() {
   const o = S.over; const mt = meta();
   if (!S.recorded) { S.recorded = true; S.unlockedNow = mt.maxWeeks < 20 && S.turn >= 20; mt.runs++; if (o.win) mt.wins++; mt.best = Math.max(mt.best, o.score); mt.maxWeeks = Math.max(mt.maxWeeks, S.turn); put(META_KEY, mt); drop(SAVE_KEY); }
+  const cpg = S.camp ? recordOp() : null;
   const sv = E.survivors(S);
   const unlockedNow = !!S.unlockedNow;
   const art = o.win ? ART.svg(S.phase === 'restore' ? 'restore_gov' : 'cure', S.phase === 'restore' ? 'CIVIL' : 'CURE', '', true) : ART.svg(o.title === 'Mutiny' ? 'mutiny' : o.title === 'Relieved of Command' ? 'inquiry' : 'horde', o.title === 'Mutiny' || o.title === 'Relieved of Command' ? 'COMMAND' : 'COMBAT', '', true);
@@ -4129,11 +4195,12 @@ function showGameOver() {
         <div class="stat"><span class="lbl">Best score</span><span class="v mono">${mt.best.toLocaleString()}</span></div>
       </div>
       <p class="note">${esc(E.CMD[S.cmd].name)} · ${E.DIFFS[S.diff].name} · seed <span class="mono">${esc(S.seed)}</span> · regions fallen ${E.fallenCount(S)} · directives ${S.stats.directivesWon} won, ${S.stats.directivesLost} failed</p>
-      ${unlockedNow ? '<p style="color:var(--amber)">Lt. Gen. Frank Garrison (Hardliner) is now available as a commander.</p>' : ''}</div>
-    <div class="dlg-f">${CINE.hasEnding(S) ? '<button class="btn ghost" id="b-endfilm">Watch the ending</button>' : ''}<button class="btn ghost" id="b-look">Look at the map</button><button class="btn ghost" id="b-same">Retry same seed</button><button class="btn" id="b-new">New run</button></div>`);
+      ${unlockedNow ? '<p style="color:var(--amber)">Lt. Gen. Frank Garrison (Hardliner) is now available as a commander.</p>' : ''}
+    ${cpg ? `<p class="note" style="color:var(--amber)">Campaign · ${opName(cpg, S.camp.op)} · record ${cpg.wins}–${cpg.losses}${cpg.stage === 'over' ? ' · the campaign is over' : ''}</p>` : ''}</div>
+    <div class="dlg-f">${CINE.hasEnding(S) ? '<button class="btn ghost" id="b-endfilm">Watch the ending</button>' : ''}<button class="btn ghost" id="b-look">Look at the map</button>${cpg ? `<button class="btn" id="b-camp">${cpg.stage === 'debrief' ? 'Continue the campaign' : 'Campaign results'}</button>` : '<button class="btn ghost" id="b-same">Retry same seed</button><button class="btn" id="b-new">New run</button>'}</div>`);
   $('#b-look', m).onclick = closeModal; const bef = $('#b-endfilm', m); if (bef) bef.onclick = () => { closeModal(); CINE.ending(S, showGameOver); };
-  $('#b-same', m).onclick = () => startGame({ cmd:S.cmd, diff:S.diff, seed:S.seed });
-  $('#b-new', m).onclick = showTitle;
+  if (cpg) $('#b-camp', m).onclick = () => cpg.stage === 'debrief' ? showDebrief() : showCampaignEnd();
+  else { $('#b-same', m).onclick = () => startGame({ cmd:S.cmd, diff:S.diff, seed:S.seed }); $('#b-new', m).onclick = showTitle; }
 }
 function showMenu() {
   const m = openModal(`<div class="dlg-h"><div><div class="k" style="color:var(--amber)">Seed ${esc(S.seed)} · progress saves every action</div><h2>Menu</h2></div><button class="hbtn" id="b-x">Close</button></div>
@@ -4144,7 +4211,7 @@ function showMenu() {
       <button class="opt" id="m-snd"><span class="num">♪</span><span><span class="ol">Sound: ${SFX.isMuted() ? 'off' : 'on'}</span><div class="of">Gunfire, helicopters, radio and alarms. Tap to switch.</div></span></button>
       <button class="opt" id="m-oob"><span class="num">≡</span><span><span class="ol">Brigade order of battle</span><div class="of">What the ECB is made of.</div></span></button>
       <button class="opt" id="m-title"><span class="num">⌂</span><span><span class="ol">Title screen</span><div class="of">Your run stays saved. Continue it from the title screen.</div></span></button>
-      <button class="opt" id="m-quit"><span class="num">×</span><span><span class="ol">Abandon this run</span><div class="of">Ends the run now and counts it as a loss.</div></span></button>
+      <button class="opt" id="m-quit"><span class="num">×</span><span><span class="ol">${S.camp ? 'Abandon this operation' : 'Abandon this run'}</span><div class="of">${S.camp ? 'Ends the operation and the whole campaign.' : 'Ends the run now and counts it as a loss.'}</div></span></button>
     </div></div>`);
   $('#b-x', m).onclick = closeModal; $('#m-how', m).onclick = showHowTo; $('#m-film', m).onclick = () => { closeModal(); CINE.play(S, enterGame); }; $('#m-oob', m).onclick = showOOB; $('#m-tut', m).onclick = () => { closeModal(); TUT.start(true); }; $('#m-snd', m).onclick = () => { SFX.setMuted(!SFX.isMuted()); sndBtn(); $('#m-snd .ol', m).textContent = 'Sound: ' + (SFX.isMuted() ? 'off' : 'on'); if (!SFX.isMuted()) SFX.play('click'); }; $('#m-title', m).onclick = showTitle;
   $('#m-quit', m).onclick = () => { $('#m-quit', m).querySelector('.ol').textContent = 'Tap again to confirm'; $('#m-quit', m).onclick = () => { S.over = { win:false, title:'Run Abandoned', text:'You handed over command.' }; S.over.score = E.score(S); flow(); }; };
@@ -4173,6 +4240,7 @@ function howHTML() {
     <li><b>Burn cards</b> you don't want with the flame button on a card in your hand (tap it twice). The card goes to the discard pile. It stays in your deck and comes back later, but its slot fills with a fresh card next week. To take a card out of your deck for good, use Remove a card on a reward screen.</li>
     <li><b>Shortcuts:</b> keys 1–9 play cards or pick crisis choices, A opens air tasking, G opens engineers, E ends the week.</li>
     <li><b>Sound and tips:</b> the speaker button at the top turns sound on or off. The Menu can replay the tutorial tips.</li>
+    <li><b>Campaign mode</b> (Start campaign on the title screen): 3, 4 or 5 operations in a row with the same brigade. Your maneuver battalions keep their experience and commanders, lost soldiers are only partly replaced, doctrines stay adopted, and each outbreak is a bit more infectious. Between operations you pick a refit. A second failed operation, or the brigade being wiped out, mutinying or you being relieved, ends the campaign.</li>
     <li><b>Movies:</b> an opening movie plays when a run starts and an ending movie when it ends, different for each kind of win or loss. Turn both off on the title screen. Replay them from the Menu or the end screen.</li>
   </ol></div>`;
 }
@@ -4205,21 +4273,113 @@ function titleMap() {
   for (const [id, v] of Object.entries(hot)) { const [x, y] = E.RD[id].a; s += `<circle cx="${x}" cy="${y}" r="${30 * v + 10}" fill="url(#tg)" opacity=".5"/>`; }
   return s + '</svg>';
 }
+// ------------------------------------------------------------- campaign
+const CAMP_KEY = 'ecb_campaign_v1';
+const camp = () => get(CAMP_KEY);
+const campActive = c => !!(c && (c.stage === 'play' || c.stage === 'debrief'));
+const opName = (c, n) => `Operation ${n} of ${c.len}`;
+function newCampaign(len) {
+  const id = (titleOpts.seed || Math.floor(Math.random() * 1e9).toString(36).toUpperCase()).slice(0, 12);
+  const c = { v:1, id, len, cmd:titleOpts.cmd, diff:titleOpts.diff, op:1, stage:'play', results:[], fallen:[], carry:null, wins:0, losses:0, outcome:null };
+  put(CAMP_KEY, c); startOp(c);
+}
+function startOp(c) { startGame({ cmd:c.cmd, diff:c.diff, seed:`${c.id}-${c.op}`, camp:{ id:c.id, op:c.op, len:c.len }, carry:c.carry }); }
+// called when an operation ends: log it, decide whether the campaign goes on, and work out what carries over
+function recordOp() {
+  const c = camp(); if (!S || !S.camp || !c || c.id !== S.camp.id) return c;
+  if (S.campRecorded || c.op !== S.camp.op || c.stage !== 'play') return c;
+  S.campRecorded = true; const o = S.over;
+  c.results.push({ op:c.op, title:o.title, win:!!o.win, score:o.score || 0, weeks:S.turn, kia:S.stats.kia || 0, path:S.path.name, pz:E.RD[S.pz].name, refit:c.carry && c.carry.refit || null });
+  if (o.win) c.wins++; else c.losses++;
+  for (const f of (S.stats.fallenCdrs || [])) c.fallen.push(Object.assign({ op:c.op }, f));
+  const goesOn = E.campaignGoesOn(o, c.losses);
+  if (goesOn && c.op < c.len) { c.stage = 'debrief'; c.carry = E.campaignCarry(S); }
+  else {
+    c.stage = 'over'; c.outcome = o.title === 'Run Abandoned' ? 'abandoned' : !goesOn ? 'failed' : c.losses ? 'complete' : 'victory';
+    c.score = Math.round(c.results.reduce((a, r) => a + r.score, 0) * (c.outcome === 'victory' ? E.CAMPAIGN.bonus : 1));
+    const mt = meta(); mt.camps = (mt.camps || 0) + 1; if (c.outcome === 'victory' || c.outcome === 'complete') mt.campWins = (mt.campWins || 0) + 1; mt.bestCamp = Math.max(mt.bestCamp || 0, c.score); put(META_KEY, mt);
+  }
+  put(CAMP_KEY, c); return c;
+}
+function opRows(c) {
+  return `<div class="oprows">${Array.from({ length:c.len }, (_, i) => { const r = c.results[i];
+    return r ? `<div class="oprow ${r.win ? 'w' : 'l'}"><span class="mono">OP ${r.op}</span><span><b>${esc(r.title)}</b><br><span class="note">${esc(r.path)} from ${esc(r.pz)} · ${r.weeks} weeks · ${r.kia.toLocaleString()} lost</span></span><span class="mono">${r.score.toLocaleString()}</span></div>`
+      : `<div class="oprow next"><span class="mono">OP ${i + 1}</span><span class="note">${i === c.results.length && c.stage !== 'over' ? 'Next' : 'Not played'}</span><span></span></div>`; }).join('')}</div>`;
+}
+function memorialHTML(c) {
+  if (!c.fallen.length) return '';
+  return `<div class="sec"><span class="lbl">In memory</span><ul class="memlist">${c.fallen.map(f => `<li>${esc(f.name)} <span class="note">· ${esc(f.unit)} · Op ${f.op}, week ${f.week}</span></li>`).join('')}</ul></div>`;
+}
+function carryHTML(c) {
+  const k = c.carry; if (!k) return '';
+  const bns = E.BNS.map(b => { const v = k.vet[b]; const rk = E.RANKS[E.rankIdxOf(v.xp)]; const tr = E.TRAITS[v.cdr.trait];
+    return `<div class="crow"><span><b>${esc(E.UNITS[b].name)}</b><br><span class="note">${esc(v.cdr.name)} · ${esc(tr ? tr.name : '')}</span></span><span class="mono">${rk.name}<br><span class="note">${Math.round(v.xp)} XP</span></span><span class="mono">${Math.round(k.u[b] * 100)}%</span></div>`; }).join('');
+  const others = Object.keys(k.u).filter(u => !E.BNS.includes(u)); const lowest = Math.min(...others.map(u => k.u[u]));
+  const hl = Object.keys(k.heloMax).map(h => `${k.helo[h]}/${k.heloMax[h]} ${({ attack:'attack', multi:'multirole', heavy:'heavy' })[h]}`).join(' · ');
+  return `<div class="sec"><span class="lbl">Your brigade going into ${opName(c, c.op + 1)}</span>
+    <div class="crows"><div class="crow hd"><span>Battalion</span><span>Rank</span><span>Strength</span></div>${bns}</div>
+    <p class="note" style="margin-top:6px">Other units at ${Math.round(lowest * 100)}% or better. Helicopters: ${hl}. Starting Trust ${k.trust}, Morale ${k.morale}.</p>
+    <p class="note">Doctrines kept: ${k.doct.length ? k.doct.map(d => esc(E.DOCTRINES[d].name)).join(', ') : 'none yet'}.</p>
+    <p class="note" style="color:#ff9a8e">The next outbreak is ${Math.round(E.CAMPAIGN.escal * c.op * 100)}% more infectious than the first.</p></div>`;
+}
+function showDebrief() {
+  const c = camp(); if (!c || c.stage !== 'debrief') return showTitle();
+  const last = c.results[c.results.length - 1];
+  // three refit options, picked from the campaign seed so they don't change on reload
+  let h = 7; for (const ch of c.id + c.op) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const ids = Object.keys(E.REFITS).sort((a, b) => ((h ^ a.length * 2654435761) % 97) - ((h ^ b.length * 2654435761) % 97) || a.localeCompare(b));
+  const pickIds = []; for (let i = 0; pickIds.length < 3 && i < 20; i++) { const id = ids[(h + i * 7) % ids.length]; if (!pickIds.includes(id)) pickIds.push(id); }
+  const m = openModal(`<div class="crisis-art">${ART.svg(last.win ? 'rotation' : 'cine_memorial', last.win ? 'LOGISTICS' : 'COMMAND', '', true)}</div>
+    <div class="dlg-h"><div><div class="k" style="color:var(--amber)">Campaign · ${opName(c, c.op)} · record ${c.wins}–${c.losses}</div><h2>Between operations</h2></div></div>
+    <div class="dlg-b">${opRows(c)}${carryHTML(c)}${memorialHTML(c)}
+      <div class="sec"><span class="lbl">Refit before the next deployment · pick one</span><div class="opts">${pickIds.map((id, i) => `<button class="opt" data-r="${id}"><span class="num">${i + 1}</span><span><span class="ol">${esc(E.REFITS[id].name)}</span><div class="of">${esc(E.REFITS[id].text)}</div></span></button>`).join('')}</div></div>
+      ${c.losses ? `<p class="note" style="color:#ff9a8e">One more failed operation ends the campaign.</p>` : ''}</div>`, 'wide', k => { const id = pickIds[+k - 1]; if (id) go(id); });
+  const go = id => { const c2 = camp(); c2.carry = E.applyRefit(c2.carry, id); c2.op++; c2.stage = 'play'; put(CAMP_KEY, c2); toast(`${E.REFITS[id].name}. ${opName(c2, c2.op)} begins.`); startOp(c2); };
+  for (const b of $$('.opt[data-r]', m)) b.onclick = () => go(b.dataset.r);
+}
+function showCampaignEnd() {
+  const c = camp(); if (!c) return showTitle();
+  const T = { victory:['Campaign won', 'Every operation succeeded. Score ×' + E.CAMPAIGN.bonus + '.', 'var(--good)'], complete:['Campaign complete', `${c.wins} of ${c.len} operations succeeded.`, 'var(--good)'], failed:['Campaign lost', 'The campaign ended early.', 'var(--hostile)'], abandoned:['Campaign abandoned', 'You handed over command.', 'var(--hostile)'] }[c.outcome] || ['Campaign over', '', 'var(--amber)'];
+  const weeks = c.results.reduce((a, r) => a + r.weeks, 0), kia = c.results.reduce((a, r) => a + r.kia, 0);
+  const m = openModal(`<div class="crisis-art">${ART.svg(c.outcome === 'victory' || c.outcome === 'complete' ? 'cine_home' : 'cine_memorial', c.outcome === 'victory' || c.outcome === 'complete' ? 'CIVIL' : 'COMMAND', '', true)}</div>
+    <div class="dlg-h"><div><div class="k" style="color:${T[2]}">Campaign · ${c.len} operations · ${esc(E.CMD[c.cmd].name)} · ${E.DIFFS[c.diff].name}</div><h2>${T[0]}</h2></div></div>
+    <div class="dlg-b"><p>${esc(T[1])}</p>
+      <div class="sit-top"><div class="stat"><span class="lbl">Campaign score</span><span class="v mono" style="color:var(--amber)">${(c.score || 0).toLocaleString()}</span></div>
+        <div class="stat"><span class="lbl">Record</span><span class="v mono">${c.wins}–${c.losses}</span></div><div class="stat"><span class="lbl">Weeks</span><span class="v mono">${weeks}</span></div>
+        <div class="stat"><span class="lbl">Brigade losses</span><span class="v mono">${kia.toLocaleString()}</span></div><div class="stat"><span class="lbl">Best campaign</span><span class="v mono">${(meta().bestCamp || 0).toLocaleString()}</span></div></div>
+      ${opRows(c)}${memorialHTML(c)}</div>
+    <div class="dlg-f"><button class="btn" id="b-ctitle">Title screen</button></div>`, 'wide');
+  $('#b-ctitle', m).onclick = () => { const c2 = camp(); if (c2) { c2.stage = 'archived'; put(CAMP_KEY, c2); } showTitle(); };
+}
+function showCampaignStart() {
+  const m = openModal(`<div class="dlg-h"><div><div class="k" style="color:var(--amber)">${esc(E.CMD[titleOpts.cmd].name)} · ${E.DIFFS[titleOpts.diff].name}</div><h2>Start a campaign</h2></div><button class="hbtn" id="b-x">Close</button></div>
+    <div class="dlg-b"><ul class="clist">
+      <li>Fight several outbreaks in a row with the same brigade and commander.</li>
+      <li>Your three maneuver battalions keep their <b>experience and commanders</b>. Lost soldiers are only partly replaced, so losses carry over.</li>
+      <li><b>Doctrines</b> you adopt stay for the whole campaign. Lost helicopters come back one at a time.</li>
+      <li>Between operations you pick one refit: replacements, training, new airframes, political capital or stocks.</li>
+      <li>Each new outbreak is 5% more infectious than the last.</li>
+      <li>The campaign ends early if the brigade is wiped out, mutinies or you are relieved, or after a second failed operation. Win every operation for a ×${E.CAMPAIGN.bonus} campaign score.</li></ul>
+      <div class="opts">${E.CAMPAIGN.lens.map((n, i) => `<button class="opt" data-n="${n}"><span class="num">${n}</span><span><span class="ol">${n} operations</span><div class="of">${['A short campaign, about an evening.', 'A full tour.', 'The long war.'][i]}</div></span></button>`).join('')}</div></div>`, '', k => { const n = E.CAMPAIGN.lens[+k - 1]; if (n) newCampaign(n); });
+  $('#b-x', m).onclick = closeModal;
+  for (const b of $$('.opt[data-n]', m)) b.onclick = () => newCampaign(+b.dataset.n);
+}
 function showTitle() {
-  closeModal(); const sv = get(SAVE_KEY); const mt = meta();
+  closeModal(); const sv = get(SAVE_KEY); const mt = meta(); const cp = camp();
   const hardOK = mt.maxWeeks >= 20;
   if (titleOpts.cmd === 'hard' && !hardOK) titleOpts.cmd = 'mech';
   $('#root').innerHTML = `<div class="title"><div class="title-in">
     <div class="t-hero"><div><div class="t-logo">ECB<span>OUTBREAK</span></div>
       <p class="t-tag">A plague is loose and the dead are walking. You command the <b>Expeditionary Combat Brigade</b>: 4,800 soldiers, a fleet of modular combat vehicles, eleven helicopters and a drone squadron. You don't fight alone: every region's own army and police do most of the fighting. The ECB moves fast, reinforces them where they are breaking, and brings the specialists they lack. Draw orders, make hard calls, and hold the world together until the labs finish a cure.</p>
-      <div class="t-go">${sv && !sv.over ? `<button class="btn" id="t-cont">Continue week ${sv.turn}</button>` : ''}<button class="btn ${sv && !sv.over ? 'ghost' : ''}" id="t-start">${sv && !sv.over ? 'New run' : 'Start run'}</button><button class="btn ghost" id="t-how">How to play</button><button class="btn ghost" id="t-film">Watch intro</button></div>
+      <div class="t-go">${campActive(cp) ? `<button class="btn" id="t-camp-cont">Continue campaign · ${cp.stage === 'debrief' ? `Op ${cp.op} of ${cp.len} done` : `Op ${cp.op} of ${cp.len}${sv && !sv.over && sv.camp && sv.camp.id === cp.id ? ` · week ${sv.turn}` : ''}`}</button><button class="btn ghost" id="t-camp-quit">Abandon campaign</button>`
+        : `${sv && !sv.over ? `<button class="btn" id="t-cont">Continue week ${sv.turn}</button>` : ''}<button class="btn ${sv && !sv.over ? 'ghost' : ''}" id="t-start">${sv && !sv.over ? 'New run' : 'Start run'}</button><button class="btn ghost" id="t-camp">Start campaign</button>`}<button class="btn ghost" id="t-how">How to play</button><button class="btn ghost" id="t-film">Watch intro</button></div>
       <label class="t-chk" for="t-intro"><input type="checkbox" id="t-intro" ${introOn() ? 'checked' : ''}> Play the opening and ending movies</label></div>
       <div>${titleMap()}</div></div>
     <div class="t-sec"><h3>Choose your commander</h3><div class="cmds">${E.COMMANDERS.map(c => { const locked = c.unlock && !hardOK; return `<button class="cmd" data-c="${c.id}" aria-pressed="${titleOpts.cmd === c.id}" ${locked ? 'disabled' : ''}><span class="tt">${esc(c.title)}</span><span class="nm">${esc(c.name)}</span><span class="bl">${esc(locked ? 'Locked. ' + c.unlock + ' to unlock.' : c.blurb)}</span></button>`; }).join('')}</div></div>
     <div class="t-sec t-row"><label><span class="lbl">Difficulty</span><div class="seg" id="t-diff">${Object.entries(E.DIFFS).map(([k, d]) => `<button data-d="${k}" aria-pressed="${titleOpts.diff === k}">${d.name}</button>`).join('')}</div></label>
       <label for="t-seed"><span class="lbl">Seed (optional)</span><input id="t-seed" placeholder="random" value="${esc(titleOpts.seed)}" maxlength="16" autocomplete="off"></label></div>
     <div class="note" id="t-diffnote" style="margin-top:8px"></div>
-    <div class="records"><span>Runs <span class="mono">${mt.runs}</span></span><span>Cures found <span class="mono">${mt.wins}</span></span><span>Best score <span class="mono">${mt.best.toLocaleString()}</span></span><span>Longest run <span class="mono">${mt.maxWeeks} weeks</span></span></div>
+    <div class="records"><span>Runs <span class="mono">${mt.runs}</span></span><span>Cures found <span class="mono">${mt.wins}</span></span><span>Best score <span class="mono">${mt.best.toLocaleString()}</span></span><span>Longest run <span class="mono">${mt.maxWeeks} weeks</span></span>${mt.camps ? `<span>Campaigns <span class="mono">${mt.campWins || 0}/${mt.camps}</span></span><span>Best campaign <span class="mono">${(mt.bestCamp || 0).toLocaleString()}</span></span>` : ''}</div>
   </div></div>`;
   const notes = { recruit:'Recruit: start here. Slower pathogen, stronger resupply, faster labs.', veteran:'Veteran: the intended challenge.', nightmare:'Nightmare: two outbreak origins, weak supply lines, faster pathogen. Score ×1.5.' };
   const upd = () => { $('#t-diffnote').textContent = notes[titleOpts.diff]; };
@@ -4227,7 +4387,11 @@ function showTitle() {
   for (const b of $$('.cmd')) b.onclick = () => { titleOpts.cmd = b.dataset.c; for (const x of $$('.cmd')) x.setAttribute('aria-pressed', x === b); };
   for (const b of $$('#t-diff button')) b.onclick = () => { titleOpts.diff = b.dataset.d; for (const x of $$('#t-diff button')) x.setAttribute('aria-pressed', x === b); upd(); };
   $('#t-seed').oninput = e => titleOpts.seed = e.target.value.trim();
-  $('#t-start').onclick = () => startGame({ cmd:titleOpts.cmd, diff:titleOpts.diff, seed:titleOpts.seed || undefined });
+  const ts = $('#t-start'); if (ts) ts.onclick = () => startGame({ cmd:titleOpts.cmd, diff:titleOpts.diff, seed:titleOpts.seed || undefined });
+  const tc = $('#t-camp'); if (tc) tc.onclick = showCampaignStart;
+  const tcc = $('#t-camp-cont'); if (tcc) tcc.onclick = () => { const c2 = camp(); if (c2.stage === 'debrief') return showDebrief(); if (sv && !sv.over && sv.camp && sv.camp.id === c2.id && sv.camp.op === c2.op) { S = E.migrate(sv); enterGame(); } else startOp(c2); };
+  const tcq = $('#t-camp-quit'); if (tcq) tcq.onclick = () => { if (!tcq.classList.contains('arm')) { tcq.classList.add('arm'); tcq.textContent = 'Tap again to abandon'; return; }
+    const c2 = camp(); c2.stage = 'over'; c2.outcome = 'abandoned'; c2.score = c2.results.reduce((a, r) => a + r.score, 0); put(CAMP_KEY, c2); if (sv && sv.camp && sv.camp.id === c2.id) drop(SAVE_KEY); showCampaignEnd(); };
   $('#t-how').onclick = showHowTo;
   $('#t-intro').onchange = e => { try { localStorage.setItem('ecb_intro', e.target.checked ? '1' : '0'); } catch (x) {} };
   $('#t-film').onclick = () => { const demo = E.newGame({ cmd:titleOpts.cmd, diff:titleOpts.diff, seed:titleOpts.seed || undefined }); CINE.play(demo, showTitle); };

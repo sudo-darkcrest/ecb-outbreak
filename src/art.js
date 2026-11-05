@@ -640,6 +640,12 @@ ${[-23, -17, -11, -5, 1, 7, 13, 19].map(x => `<ellipse cx="${x + 2}" cy="-14.8" 
 <path d="M5.8 -8.8 L3 0 L4.2 0 L6.4 -6.8 L8.8 0 L10 0 Z"/><rect x="4.2" y="-10.4" width="3" height="1.6" ${F('d3')}/><rect x="2.6" y="-12" width="2.2" height="1.6" ${F('d2')}/><rect x="3.6" y="-11.6" width=".6" height=".6" ${A(.85)}/></g>
 <g id="s-cage" fill="none" stroke="currentColor" stroke-width=".9"><rect x="-10" y="-22" width="20" height="22"/><path d="M-6 -22 V0 M-2 -22 V0 M2 -22 V0 M6 -22 V0 M-10 -11 H10"/><path d="M-11 -22.6 H11 M-11 .4 H11" stroke-width="1.4"/><rect x="7.4" y="-12.4" width="2" height="2.4" fill="currentColor" stroke="none"/></g>
 <g id="s-mush"><path d="M-3.6 0 Q-2 -14 -4.6 -21 Q-15 -21 -15 -28 Q-15 -37 0 -37 Q15 -37 15 -28 Q15 -21 4.6 -21 Q2 -14 3.6 0 Z"/><path d="M-13 -28 Q-12 -35 -4 -35.6 Q-8 -32 -6 -28 Q-10 -25 -13 -28 Z M2 -35.4 Q10 -35 12.6 -29 Q8 -30 6 -33 Z" fill="#ffe6b0" opacity=".55"/><path d="M-15 -27 Q-8 -22 0 -22.6 Q8 -22 15 -27 Q14 -21 4.6 -21 L-4.6 -21 Q-14 -21 -15 -27 Z" fill="#b8481a" opacity=".5"/><path d="M-1.6 -18 Q-.6 -9 -2 0" fill="none" stroke="#ffe6b0" stroke-width=".8" opacity=".5"/><ellipse cx="0" cy="-15" rx="10" ry="1.6" fill="none" stroke="#ffe6b0" stroke-width=".8" opacity=".4"/></g>
+<g id="s-bcross">
+<path d="M-.55 -21 H.55 V-4.2 H-.55 Z"/><path d="M-1.2 -13.4 H1.2 L1.1 -8.6 H-1.1 Z"/><path d="M-.9 -6 H.9 L1.4 -4.4 H-1.4 Z"/><path d="M-.35 -4.4 L.35 -4.4 L0 -.6 Z"/>
+<path d="M-3.9 -20.6 Q-3.8 -25.4 0 -25.6 Q3.8 -25.4 3.9 -20.6 Z"/><rect x="-4.5" y="-21.2" width="9" height="1" rx=".45"/><path d="M-3.2 -23.2 Q0 -25 3.2 -23.2" ${AS(.35, .45)}/>
+<path d="M-6 0 V-3.6 Q-6 -4.4 -5.1 -4.4 H-3.1 L-2.9 -1.4 L-1.4 -.4 V0 Z"/><path d="M6 0 V-3.6 Q6 -4.4 5.1 -4.4 H3.1 L2.9 -1.4 L1.4 -.4 V0 Z"/>
+<rect x="-1.6" y="-17.4" width="3.2" height="2.2" rx=".3" ${F('d3')}/>
+</g>
 <g id="s-flag"><rect x="-.6" y="-26" width="1.2" height="26"/><circle cx="0" cy="-26.4" r=".9"/><path d="M.6 -25.4 Q6 -28 11 -25 Q16 -22 21 -24 V-15 Q16 -13 11 -16 Q6 -19 .6 -16.4 Z" style="fill:var(--acc)"/><path d="M.6 -22.4 Q6 -25 11 -22 Q16 -19 21 -21 M.6 -19.4 Q6 -22 11 -19 Q16 -16 21 -18" fill="none" stroke="#000" stroke-width=".9" opacity=".22"/><path d="M.6 -25.4 Q4 -27 7.4 -26.2 V-20.2 Q4 -21.4 .6 -20.2 Z" fill="#000" opacity=".25"/><path d="M11 -25 Q13 -24 15 -23.4 V-14.6 Q13 -15 11 -16 Z" fill="#fff" opacity=".12"/></g>
 <g id="s-lamp"><circle r="2" fill="#fff3c4"/><circle r="4.4" fill="#fff3c4" opacity=".18"/></g>
 <g id="s-pine"><rect x="-.4" y="-2.6" width=".8" height="2.6"/><path d="M0 -16 L-2.4 -11 L-1.2 -11 L-3.6 -6.4 L-2 -6.4 L-4.8 -2.4 L4.8 -2.4 L2 -6.4 L3.6 -6.4 L1.2 -11 L2.4 -11 Z"/></g>
@@ -784,7 +790,7 @@ const SC = {
   pattern: [['bg','room'],['u','map',84,36,2],['u','officer',146,72,1.5,{f:1}],['u','soldier',18,72,1.4]],
   patient_zero: [['bg','room'],['u','map',72,38,1.85],['u','reticle',110,48,.9],['u','flask',144,72,1.8],['u','bio',20,26,1.3,{o:.6}]],
   // ===== research / medical
-  escort: [['bg','farcity'],['u','lab',122,72,1.4],['u','ml',46,72,.95,{o:.85}],['u','soldier',16,72,1.45],['u','civ',38,72,1.45],['u','civ',54,72,1.35],['u','soldier',74,72,1.45]],
+  escort: [['bg','farcity'],['u','lab',134,72,1.25],['u','ml',30,72,.9],['u','soldier',64,72,1.4],['u','civ',80,72,1.4],['u','civ',94,72,1.3],['u','soldier',110,72,1.4,{f:1}]],
   decon: [['bg','field'],['u','tent',110,72,2.1],['u','bio',110,40,1.1],['u','soldier',58,72,1.55],['rect',22,36,4,36],['line',26,40,52,54,.5,'var(--acc)'],['line',26,44,54,58,.5,'var(--acc)'],['line',26,48,50,62,.5,'var(--acc)']],
   specimen: [['bg','room'],['g',80,54,32,'red'],['u','cage',80,72,2.1],['u','zombie',82,72,1.75],['u','soldier',30,72,1.5],['u','soldier',132,72,1.5,{f:1}]],
   fst: [['bg','field'],['g',80,50,42,'fire'],['u','tent',80,72,2.6],['u','redx',80,48,1.8],['u','soldier',26,72,1.45],['u','soldier',136,72,1.45,{f:1}]],
@@ -793,7 +799,7 @@ const SC = {
   forage: [['bg','ruins'],['u','truck',122,73,1.4],['u','soldier',26,72,1.45],['u','crate',40,57,1.1],['u','soldier',60,72,1.45],['u','crate',74,57,1.1],['u','drum',90,72,1.5]],
   requisition: [['bg','farcity'],['u','crate',34,72,2.5],['u','crate',60,72,2.5],['u','crate',47,52,2.5],['u','star',47,42,.75,{c:'acc'}],['u','truck',126,73,1.35]],
   fuel_point: [['bg','desert'],['g',140,28,26,'sun'],['u','tanker',44,73,1.4],['u','ifv',128,72,1.15,{f:1}],['line',75,64,100,62,1,'#05080a'],['u','drum',90,72,1.4],['u','drum',98,72,1.4]],
-  maint: [['bg','field'],['g',92,46,34,'fire'],['u','hr',44,72,1.0],['u','ifv',126,72,.8,{r:-5}],['smoke',132,56,.55],['u','kneel',96,72,1.15],['u','wrench',150,22,.9],['u','gear',18,20,.9]],
+  maint: [['bg','field'],['g',92,46,34,'fire'],['u','hr',44,72,1.0],['u','ifv',132,72,.8,{r:-5}],['smoke',138,56,.55],['u','kneel',88,72,1.15],['u','wrench',150,22,.9],['u','gear',18,20,.9]],
   cache: [['bg','sea'],['g',26,56,28,'sun'],['u','ship',110,66,1.35],['u','crate',22,72,1.8],['u','crate',40,72,1.8],['u','crate',31,57.6,1.8]],
   // ===== civil
   safe_zone: [['bg','farcity'],['g',80,58,42],['u','wall',46,72,1.7],['u','wall',114,72,1.7],['u','tower',12,72,1.4],['u','tower',148,72,1.4],['u','shield',80,38,1.6]],
@@ -801,10 +807,10 @@ const SC = {
   psa: [['bg','city'],['u','mast',80,72,1.55],['waves',80,4,4],['crowd',12,60,72,4,1.25],['crowd',100,148,72,4,1.25]],
   partner: [['bg','farcity'],['g',80,50,24],['u','soldier',68,72,1.9],['u','soldier',94,72,1.9,{f:1}],['u','ul',22,73,.8,{o:.75}],['u','pickup',140,73,1.1,{o:.8,f:1}]],
   borders: [['bg','field'],['horde',14,60,72,4,1.15,1],['u','fence',36,72,1.45],['u','fence',94,72,1.45],['u','tower',142,72,1.45]],
-  refugee_camp: [['bg','field'],['g',80,56,42],['u','tent',26,72,1.3],['u','tent',66,72,1.55],['u','tent',110,72,1.3],['u','tent',146,72,1.2],['crowd',44,128,72,4,1.15]],
+  refugee_camp: [['bg','field'],['g',80,56,42],['u','tent',26,72,1.3],['u','tent',66,72,1.55],['u','tent',108,72,1.3],['u','tent',142,72,1.05],['crowd',44,126,72,4,1.15]],
   // ===== command
-  cine_home: [['bg','field'],['rays',80,52],['u','plane',118,50,1.25,{o:.8}],['crowd',4,46,72,5,1.35],['u','soldier',62,72,1.5,{f:1}],['u','soldier',80,72,1.5,{f:1}],['u','soldier',98,72,1.5,{f:1}],['u','flag',150,72,1.35]],
-  cine_memorial: [['stars',4],['bg','field'],['rays',80,46],['g',80,58,34],['u','flag',80,72,1.9],['u','kneel',52,72,1.5],['u','kneel',108,72,1.5,{f:1}],['u','soldier',28,72,1.5],['u','soldier',132,72,1.5,{f:1}]],
+  cine_home: [['bg','field'],['rays',80,52],['u','plane',112,46,1.1,{c:'mid'}],['crowd',4,46,72,5,1.35],['u','cheer',66,72,1.5,{f:1}],['u','officer',84,72,1.5,{f:1}],['u','cheer',102,72,1.5,{f:1}],['u','flag',132,72,1.1]],
+  cine_memorial: [['stars',4],['bg','field'],['rays',80,46],['g',80,58,34],['u','flag',68,72,1.75],['u','bcross',22,72,1.3],['u','bcross',44,72,1.45],['u','bcross',114,72,1.45],['u','bcross',136,72,1.3]],
   train_hn: [['bg','field'],['g',92,54,30],['u','flag',9,72,1.4],['u','crate',24,72,1.5],['u','officer',44,72,1.8],['u','kneel',72,72,1.75],['u','prone',94,72,1.55],['u','soldier',129,72,1.7],['u','pole',152,72,.5],['u','reticle',152,52,.6]],
   rally: [['bg','field'],['rays',80,56],['u','ifv',80,72,1.35],['u','cheer',58,44,1.3],['u','cheer',22,72,1.5],['u','cheer',138,72,1.5,{f:1}]],
   intent: [['bg','room'],['u','map',88,34,1.9],['u','officer',26,72,1.7],['u','soldier',148,72,1.4,{f:1}]],
@@ -832,9 +838,9 @@ const SC = {
   rotation: [['bg','field'],['u','plane',92,44,1.7],['u','soldier',16,72,1.35],['u','soldier',32,72,1.35],['u','soldier',48,72,1.35],['u','soldier',134,72,1.35,{f:1}],['u','soldier',150,72,1.35,{f:1}]],
   tribunal: [['bg','room'],['rect',30,56,100,4],['u','officer',50,56,1.45],['u','officer',80,56,1.45],['u','officer',110,56,1.45,{f:1}],['u','shield',142,40,1.1]],
   // ===== cinematic openers
-  cine_flight: [['stars',3],['bg','field'],['g',136,60,28,'red'],['u','plane',72,66,1.75],['u','pickup',144,73,.85],['g',146,61,6,'red'],['u','soldier',126,72,1.05,{f:1}]],
+  cine_flight: [['stars',3],['bg','field'],['g',136,60,28,'red'],['u','plane',64,66,1.7],['u','pickup',146,73,.8],['g',148,61,6,'red'],['u','soldier',124,72,1.05,{f:1}]],
   cine_lab: [['stars',5],['bg','farcity'],['g',80,56,52,'red'],['u','lab',80,72,1.65],['u','zombie',38,72,1.2,{o:.75}],['u','zombie',124,72,1.1,{o:.55}]],
-  cine_camp: [['stars',6],['g',132,18,14,'moon'],['bg','field'],['g',72,66,26,'fire'],['u','tent',26,72,1.3],['u','tent',104,72,1.5],['u','tent',146,72,1.2],['u','flame',70,72,.9],['crowd',46,88,72,3,1.05],['u','zombie',126,72,1.25,{o:.6}]],
+  cine_camp: [['stars',6],['g',132,18,14,'moon'],['bg','field'],['g',72,66,26,'fire'],['u','tent',26,72,1.3],['u','tent',100,72,1.45],['u','tent',146,72,.95],['u','flame',70,72,.9],['crowd',46,88,72,3,1.05],['u','zombie',126,72,1.2,{o:.7}]],
   // ===== MCV-L scouts
   scout_screen: [['bg','hills'],['beam',53,31,8,84,11],['u','ml',48,72,1.3],['u','reticle',126,52,1.05],['horde',112,152,72,3,1.15]],
   lost_patrol: [['stars',4],['bg','ruins'],['g',72,58,30,'red'],['u','ml',70,72,1.25,{r:4}],['waves',72,30,3],['horde',4,30,72,3,1.2,1],['horde',112,156,72,4,1.3]],

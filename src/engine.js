@@ -1141,11 +1141,49 @@ function newGame(opts) {
   s.nextSeed = rint(s, 4, 6);
   s.deck = { draw: shuffle(s, [...STARTER, ...CMD[cmd].extra]), hand:[], discard:[], exhausted:[], burned:[] };
   s.burnBank = 0;
+  if (opts.camp) applyCampaign(s, opts.camp, opts.carry);
   s.history.push(snapshot(s));
   startTurn(s);
   s.crisis = { id:'warno', ctx:{} };
   return s;
 }
+
+// ---------------------------------------------------------------- campaign mode
+// A campaign is 3–5 operations (runs) in a row. Battalions keep their experience, commanders and
+// (partly rebuilt) strength, doctrines stay adopted, and each new outbreak is a little nastier.
+const CAMPAIGN = { lens:[3, 4, 5], escal:.05, rebuild:.5, minStrength:.55, maxLosses:2, bonus:1.2 };
+const ENDS_CAMPAIGN = ['Brigade Combat Ineffective', 'Mutiny', 'Relieved of Command', 'Run Abandoned'];
+function applyCampaign(s, camp, carry) {
+  s.camp = { id:camp.id, op:camp.op, len:camp.len };
+  const k = 1 + CAMPAIGN.escal * (camp.op - 1);
+  s.path.inf *= k; s.path.spread *= k;
+  if (!carry) return;
+  const b = s.b;
+  for (const u in carry.u) if (u in b.u) b.u[u] = carry.u[u];
+  for (const h in carry.heloMax) { b.heloMax[h] = carry.heloMax[h]; b.helo[h] = Math.min(carry.heloMax[h], carry.helo[h]); }
+  b.vet = JSON.parse(JSON.stringify(carry.vet));
+  s.doct = carry.doct.slice();
+  b.trust = carry.trust; b.morale = carry.morale;
+  if (carry.supplyBonus) { b.supply += carry.supplyBonus; b.ammo += carry.supplyBonus; b.fuel += carry.supplyBonus; }
+}
+// what the brigade takes into the next operation (before the refit choice)
+function campaignCarry(s) {
+  const b = s.b, win = !!(s.over && s.over.win);
+  const u = {}; for (const k in b.u) u[k] = clamp(Math.max(CAMPAIGN.minStrength, b.u[k] + (1 - b.u[k]) * CAMPAIGN.rebuild), 0, 1);
+  const helo = {}; for (const k in b.heloMax) helo[k] = Math.min(b.heloMax[k], b.helo[k] + 1);
+  return { u, helo, heloMax:Object.assign({}, b.heloMax), vet:JSON.parse(JSON.stringify(b.vet)), doct:(s.doct || []).slice(),
+    trust:Math.round(clamp((win ? 70 : 50) + (b.trust - 60) * .3, 35, 90)), morale:Math.round(clamp((win ? 82 : 66) + (b.morale - 80) * .2, 40, 95)), supplyBonus:0 };
+}
+const REFITS = {
+  replace: { name:'Replacements',      text:'Every unit gets 15% more of its strength back.', apply:c => { for (const k in c.u) c.u[k] = Math.min(1, c.u[k] + .15); } },
+  train:   { name:'Training cycle',    text:'Each maneuver battalion gains 25 experience.',   apply:c => { for (const k of BNS) c.vet[k].xp += 25; } },
+  air:     { name:'New airframes',     text:'Every lost helicopter is replaced.',             apply:c => { for (const k in c.heloMax) c.helo[k] = c.heloMax[k]; } },
+  capital: { name:'Political capital', text:'Command Trust +15 and Morale +10 to start.',     apply:c => { c.trust = Math.min(100, c.trust + 15); c.morale = Math.min(100, c.morale + 10); } },
+  stocks:  { name:'Prepositioned stocks', text:'Start with +25 supply, ammo and fuel.',       apply:c => { c.supplyBonus = 25; } },
+};
+function applyRefit(carry, id) { const c = JSON.parse(JSON.stringify(carry)); if (REFITS[id]) REFITS[id].apply(c); c.refit = id; return c; }
+// does this ending let the campaign go on?
+function campaignGoesOn(over, lossesSoFar) { if (!over) return true; if (ENDS_CAMPAIGN.includes(over.title)) return false; return over.win || lossesSoFar < CAMPAIGN.maxLosses; }
 function cpMax(s) { const b = s.b; let c = 3; if (b.u.hq > .5 && b.en.comms) c++; if (b.morale < 25) c--; if (s.cmd === 'hard') c++; if (hasD(s, 'staff') && b.morale >= 60) c++; return Math.max(1, c); }
 // bring older saves up to date
 function migrate(s) {
@@ -1433,7 +1471,7 @@ function score(s) {
 
 return { REGIONS, RD, LINKS, ADJ, UNITS, ENABLERS, NOMINAL, NOMINAL_TOTAL, START_POP, DIFFS, COMMANDERS, CMD, CARDS, EVENTS, POSTURES, MUTATIONS,
   RESTORE_WEEKS, RESTORE_REQ, restoreReady, restoredCount, avgVax, beginRestoration, endAtCure,
-  STAB, canStabilize, presentIn, hnBolster, hnLabel, hnBase, MIN_DECK, burnValue, canBurn, burnCard, SORTIES, WORKS, canSortie, flySortie, canBuild, buildWork, worksIn, engCrew, airWorst,
+  CAMPAIGN, ENDS_CAMPAIGN, REFITS, campaignCarry, applyRefit, campaignGoesOn, rankIdxOf:(xp) => RANKS.reduce((a, r, i) => xp >= r.xp ? i : a, 0), STAB, canStabilize, presentIn, hnBolster, hnLabel, hnBase, MIN_DECK, burnValue, canBurn, burnCard, SORTIES, WORKS, canSortie, flySortie, canBuild, buildWork, worksIn, engCrew, airWorst,
   DOCTRINES, RANKS, TRAITS, CHOKE, CHOKE_LOSS, HEMI, BNS, TF_RANGE, hasD, takeDoctrine, mainBns, allMan, rankIdx, vetOf, vetKillOne, vetCas,
   tfCandidate, tfCost, canSendTF, sendTF, recallCost, canRecallTF, recallTF, monthOf, seasonOf, seasonMult, chokesLost, caps,
   baseId, isUp, def, costOf, canUpgrade, cardName, migrate,

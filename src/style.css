@@ -351,7 +351,7 @@ b{color:#fff;font-weight:700}
 .cm-r{transition:fill 1.2s ease}
 .cm-pulse{transform-box:fill-box;transform-origin:center;animation:cpulse 1.4s ease-out infinite}
 @keyframes cpulse{0%{transform:scale(.6);opacity:.9}100%{transform:scale(4.2);opacity:0}}
-.cm-arc{fill:none;stroke:#ff5a3a;stroke-width:1.4;stroke-dasharray:260;stroke-dashoffset:260;animation:draw 1s ease-out forwards}
+.cm-arc{fill:none;stroke:#ff5a3a;stroke-width:1.4;stroke-dasharray:1;stroke-dashoffset:1;animation:draw 1s ease-out forwards}
 @keyframes draw{to{stroke-dashoffset:0}}
 .c-day{position:absolute;left:max(24px,5vw);top:12vh;font-size:clamp(18px,2.6vw,34px);color:#ff7a5a;letter-spacing:.2em;font-weight:700}
 .ticker{position:absolute;left:0;right:0;bottom:calc(8vh + 8px);height:34px;background:#b3261d;color:#fff;overflow:hidden;display:flex;align-items:center;font-family:var(--f-mono);font-size:13px;letter-spacing:.08em;white-space:nowrap;z-index:2}
@@ -465,3 +465,20 @@ b{color:#fff;font-weight:700}
 .c-mem li{animation:slidein .45s ease-out both}
 .c-mem li.all{color:var(--amber);margin-top:4px}
 .end-win .ticker{background:#1f6b46}
+@media (prefers-reduced-motion:reduce){ .cm-arc{stroke-dashoffset:0} }
+
+/* campaign */
+.oprows{display:flex;flex-direction:column;gap:6px;margin:4px 0 12px}
+.oprow{display:grid;grid-template-columns:52px 1fr auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line2);border-radius:6px;background:var(--panel2)}
+.oprow .mono{font-size:12px;color:var(--dim)}
+.oprow.w{border-left:3px solid var(--good)} .oprow.l{border-left:3px solid var(--hostile)} .oprow.next{opacity:.6;border-style:dashed}
+.oprow b{font-weight:700}
+.crows{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+.crow{display:grid;grid-template-columns:1fr 88px 72px;gap:10px;align-items:center;padding:6px 8px;border-bottom:1px solid var(--line)}
+.crow.hd{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--line2)}
+.crow .mono{text-align:right}
+.memlist{list-style:none;padding:0;margin:6px 0 0;display:flex;flex-direction:column;gap:3px;font-size:13px}
+.clist{margin:0 0 12px;padding-left:18px;display:flex;flex-direction:column;gap:5px;font-size:14px;color:var(--dim)}
+.clist b{color:var(--ink)}
+#t-camp-quit.arm{border-color:var(--hostile);color:#ff9a8e}
+@media (max-width:520px){ .crow{grid-template-columns:1fr 70px 56px} .oprow{grid-template-columns:44px 1fr auto} }

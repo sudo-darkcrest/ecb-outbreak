@@ -12,8 +12,8 @@ function runIdle(seed, diff='veteran') {
   return s;
 }
 const PRI = { RESEARCH:0, CURE:0, COMBAT:1, FIRES:1, AIR:2, CIVIL:3, MEDICAL:4, LOGISTICS:5, INTEL:0, COMMAND:6 };
-function runGreedy(seed, diff='veteran', cmd='mech', verbose=false, restore=false, tasks=true) {
-  const s = ECB.newGame({ seed, diff, cmd });
+function runGreedy(seed, diff='veteran', cmd='mech', verbose=false, restore=false, tasks=true, extra=null) {
+  const s = ECB.newGame(Object.assign({ seed, diff, cmd }, extra || {}));
   ECB.resolveCrisis(s, 0);
   let guard = 0;
   while (!s.over && guard++ < 150) {
@@ -70,7 +70,16 @@ function botTasks(s) {
     for (const id of [...cur, 'barrier', 'firebase', 'hospital', 'depot']) if (E.canBuild(s, id) === true) { E.buildWork(s, id); break; }
   }
 }
-module.exports = { runIdle, runGreedy };
+function runCampaign(seed, diff, cmd, len, refit='replace') {
+  const ops = []; let carry = null, losses = 0;
+  for (let op = 1; op <= len; op++) {
+    const st = runGreedy(seed + '-' + op, diff, cmd, false, false, true, { camp:{ id:seed, op, len }, carry });
+    ops.push(st.over ? (st.over.win ? 'W' : 'L') : '?'); if (st.over && !st.over.win) losses++;
+    if (!ECB.campaignGoesOn(st.over, losses) || op === len) return { ops, losses, done: op === len && ECB.campaignGoesOn(st.over, losses) };
+    carry = ECB.applyRefit(ECB.campaignCarry(st), refit);
+  }
+}
+module.exports = { runIdle, runGreedy, runCampaign };
 if (require.main === module) {
   const mode = process.argv[2] || 'both'; const N = +process.argv[3] || 200; const diff = process.argv[4] || 'veteran';
   const summarize = (name, fn) => { const res = {}; let turns = 0, wins = 0, research = 0, surv = 0;

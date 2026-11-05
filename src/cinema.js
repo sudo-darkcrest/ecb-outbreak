@@ -93,7 +93,7 @@ function spreadRing(ids, from, color, delay) {
     if (!root) return; const p = root.querySelector(`.cm-r[data-id="${id}"]`); if (p) p.setAttribute('fill', color);
     const g = root.querySelector('#cm-arcs'); if (!g) return;
     const [x1, y1] = E.RD[from].a, [x2, y2] = E.RD[id].a; const mx = (x1 + x2) / 2, my = (y1 + y2) / 2 - Math.hypot(x2 - x1, y2 - y1) * .25;
-    const a = document.createElementNS('http://www.w3.org/2000/svg', 'path'); a.setAttribute('d', `M${x1},${y1} Q${mx},${my} ${x2},${y2}`); a.setAttribute('class', 'cm-arc'); g.appendChild(a);
+    const a = document.createElementNS('http://www.w3.org/2000/svg', 'path'); a.setAttribute('d', `M${x1},${y1} Q${mx},${my} ${x2},${y2}`); a.setAttribute('class', 'cm-arc'); a.setAttribute('pathLength', '1'); g.appendChild(a);
     noise(.08, 'bandpass', 900 + i * 80, .08);
   }));
 }
